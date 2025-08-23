@@ -19,9 +19,8 @@ struct LevelView: View {
             VStack(spacing: 0) {
                 // --- 上半部 ---
                 ZStack(alignment: .bottom) {
-                    Color(red: 135/255, green: 206/255, blue: 235/255)
-                    ScrollingBackgroundView(scrollTrigger: viewModel.score)
-                }
+                    Color(red: 95/255, green: 191/255, blue: 235/255)
+                    ScrollingBackgroundView(scrollTrigger: viewModel.score).offset(y: 160)                }
                 .frame(height: UIScreen.main.bounds.height * 0.5)
                 .clipped()
 
@@ -63,7 +62,7 @@ struct LevelView: View {
 
                     VStack {
                         ProgressBar(progress: currentProgress)
-                        .offset(y: -15)
+                        .offset(y: -10)
                         Spacer()
                     }
                 }
@@ -74,8 +73,8 @@ struct LevelView: View {
             // --- 疊加 UI ---
             VStack {
                 QuestionBar(text: viewModel.currentQuestion.text)
-                    .padding(.top, UIScreen.main.bounds.height * 0.15)
-                    .padding(.horizontal)
+                    .padding(.top, 80)
+                    .padding(.horizontal, 30)
                 Spacer()
             }
 
@@ -84,7 +83,7 @@ struct LevelView: View {
                     Spacer()
                     HeartView(lives: viewModel.lives)
                         .padding(.trailing)
-                        .padding(.top, 60)
+                        .padding(.top, 20)
                 }
                 Spacer()
             }
@@ -111,6 +110,8 @@ struct QuestionBar: View {
         Text(text)
             .font(.system(size: 36, weight: .heavy, design: .rounded))
             .foregroundColor(.white)
+            // ✨ [新增] 讓 Text 優先填滿所有可用寬度
+            .frame(maxWidth: .infinity)
             .padding()
             .background(.black.opacity(0.6))
             .cornerRadius(20)
