@@ -7,11 +7,17 @@ struct LevelView: View {
     @State private var isAnswerSubmitted = false
     @State private var wrongAttempts: [Int] = []
 
+    private var currentProgress: Double {
+        if viewModel.isQuizComplete {
+            return 1.0
+        }
+        return Double(viewModel.currentQuestionIndex) / Double(viewModel.totalQuestions)
+    }
+
     var body: some View {
         ZStack {
-            // 主要的垂直背景佈局
             VStack(spacing: 0) {
-                // --- 上半部：佔據螢幕 50% 的高度 ---
+                // --- 上半部 ---
                 ZStack(alignment: .bottom) {
                     Color(red: 135/255, green: 206/255, blue: 235/255)
                     ScrollingBackgroundView(scrollTrigger: viewModel.score)
@@ -19,7 +25,7 @@ struct LevelView: View {
                 .frame(height: UIScreen.main.bounds.height * 0.5)
                 .clipped()
 
-                // --- 下半部：佔據螢幕 50% 的高度 ---
+                // --- 下半部 ---
                 ZStack {
                     Image("ground-texture")
                         .resizable()
@@ -56,33 +62,23 @@ struct LevelView: View {
                     .padding(.horizontal)
 
                     VStack {
-                        ProgressBar(
-                            progress: Double(viewModel.currentQuestionIndex) / Double(viewModel.totalQuestions),
-                            totalSteps: viewModel.totalQuestions
-                        )
-                        .offset(y: -25)
+                        ProgressBar(progress: currentProgress)
+                        .offset(y: -15)
                         Spacer()
                     }
                 }
                 .frame(height: UIScreen.main.bounds.height * 0.5)
             }
-            // ✨ [最終修正] 讓這個負責切分畫面的 VStack 也忽略安全區
             .edgesIgnoringSafeArea(.all)
 
-            
-            // --- 疊加在最上層的 UI ---
-            
-            // 問題欄
+            // --- 疊加 UI ---
             VStack {
-                // 根據你之前的說明，你已經將 QuestionBar 放到你需要的位置，
-                // 這裡我將它保持在天空的中間位置作為範例
                 QuestionBar(text: viewModel.currentQuestion.text)
                     .padding(.top, UIScreen.main.bounds.height * 0.15)
                     .padding(.horizontal)
                 Spacer()
             }
 
-            // 心心放在右上角
             VStack {
                 HStack {
                     Spacer()
@@ -108,7 +104,6 @@ struct LevelView: View {
 
 
 // MARK: - Subviews for LevelView
-// 輔助視圖的程式碼保持不變
 
 struct QuestionBar: View {
     let text: String
@@ -125,31 +120,31 @@ struct QuestionBar: View {
 
 struct ProgressBar: View {
     let progress: Double
-    let totalSteps: Int
     
     var body: some View {
-        HStack(spacing: 8) {
-            Text("\(min(totalSteps, Int(progress * Double(totalSteps)) + 1)) / \(totalSteps)")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(.black)
+        // ✨ [結構修正] 我們將 padding 和 background/overlay 直接應用在 ZStack 上
+        ZStack(alignment: .leading) {
+            // 背景層
+            Capsule().fill(Color.black.opacity(0.5))
             
-            ZStack(alignment: .leading) {
-                Capsule().fill(Color.black.opacity(0.5)).frame(height: 12)
-                Capsule().fill(Color.white).frame(width: max(12, 150 * progress), height: 12)
-                    .animation(.spring, value: progress)
-            }
-            .frame(width: 150)
+            // 金色填充層
+            Capsule().fill(Color.supercarGold)
+                .frame(width: 400 * progress) // 使用你設定的 400 寬度
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color.white.opacity(0.9))
-        .cornerRadius(20)
+        .frame(width: 400, height: 12)
+        .padding(0)
+        // ✨ [關鍵修正] 直接使用一個 Capsule 作為背景，而不是方形背景
+        .background(
+            Capsule().fill(Color.white.opacity(0.9))
+        )
         .overlay(
             Capsule().stroke(Color.black.opacity(0.5), lineWidth: 2)
         )
+        .animation(.spring(), value: progress) // 將動畫應用到整個元件
     }
 }
 
+// HeartView 保持不變
 struct HeartView: View {
     let lives: Int
     var body: some View {
@@ -164,6 +159,7 @@ struct HeartView: View {
     }
 }
 
+// OptionButton 保持不變
 struct OptionButton: View {
     let option: Int
     @Binding var selectedOption: Int?
@@ -172,10 +168,7 @@ struct OptionButton: View {
 
     var body: some View {
         ZStack {
-            Image("option-button-bg")
-                .resizable()
-                .scaledToFit()
-            
+            Image("option-button-bg").resizable().scaledToFit()
             Text("\(option)")
                 .font(.system(size: 28, weight: .heavy, design: .rounded))
                 .foregroundColor(Color(red: 60/255, green: 40/255, blue: 40/255))
@@ -200,6 +193,7 @@ struct OptionButton: View {
         return 0.5
     }
 }
+
 
 // MARK: - Preview
 #Preview {

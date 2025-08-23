@@ -24,4 +24,7 @@ extension Color {
     static let correctGreenFallback = Color(red: 116/255, green: 204/255, blue: 95/255)
     static let incorrectRedFallback = Color(red: 255/255, green: 105/255, blue: 97/255)
     static let primaryTextFallback = Color(red: 48/255, green: 65/255, blue: 89/255)
+    // In Utils/Color+Extension.swift
+    static let supercarGold = Color(red: 201/255, green: 173/255, blue: 115/255)
+    
 }

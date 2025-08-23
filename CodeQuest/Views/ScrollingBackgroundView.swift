@@ -12,27 +12,25 @@ struct ScrollingBackgroundView: View {
             let imageWidth = geometry.size.width
             let scrollAmount = imageWidth / 4.0
             
-            HStack(spacing: 0) {
+            // ✨ [修改] 設置對齊方式為 .top，有助於佈局穩定
+            HStack(alignment: .top, spacing: 0) {
                 // 三圖片緩衝法保持不變
-                
-                // ✨ [關鍵修正] 將 .scaledToFit() 改回 .scaledToFill()
-                // 現在因為父視圖有明確的高度和靠底對齊，這個模式會正確運作
                 Image(imageName)
                     .resizable()
-                    .scaledToFill() // <--- 修改點
-                    .frame(width: imageWidth, height: geometry.size.height) // 明確指定高度
+                    .scaledToFill()
+                    .frame(width: imageWidth, height: geometry.size.height)
                     .clipped()
 
                 Image(imageName)
                     .resizable()
-                    .scaledToFill() // <--- 修改點
-                    .frame(width: imageWidth, height: geometry.size.height) // 明確指定高度
+                    .scaledToFill()
+                    .frame(width: imageWidth, height: geometry.size.height)
                     .clipped()
                 
                 Image(imageName)
                     .resizable()
-                    .scaledToFill() // <--- 修改點
-                    .frame(width: imageWidth, height: geometry.size.height) // 明確指定高度
+                    .scaledToFill()
+                    .frame(width: imageWidth, height: geometry.size.height)
                     .clipped()
             }
             .offset(x: self.offsetX)
@@ -54,16 +52,14 @@ struct ScrollingBackgroundView: View {
     }
 }
 
-
-// MARK: - Preview
+// Preview 程式碼不變
 #Preview {
-    // 這個 Preview 僅用於單獨測試此元件
     struct PreviewWrapper: View {
         @State private var score = 0
         var body: some View {
             ZStack {
                 ScrollingBackgroundView(scrollTrigger: score)
-                    .frame(height: 300) // 給予一個預覽高度
+                    .frame(height: 300)
                 
                 VStack {
                     Spacer()

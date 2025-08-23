@@ -1,10 +1,7 @@
-// MARK: - ViewModels/GameViewModel.swift
-
 import Foundation
 import Combine
 
 class GameViewModel: ObservableObject {
-    // ✨[修改] 靜態的問題列表
     private var quizQuestions: [MathQuestion] = []
     
     @Published var currentQuestionIndex: Int = 0
@@ -15,20 +12,24 @@ class GameViewModel: ObservableObject {
 
     private let maxLives = 5
     
-    // ✨[新增] 方便獲取當前問題和總數
     var totalQuestions: Int { quizQuestions.count }
-    var currentQuestion: MathQuestion { quizQuestions[currentQuestionIndex] }
-
-    init() {
-        loadQuizData() // 載入我們的 12 個問題
+    var currentQuestion: MathQuestion {
+        // 增加一個保護，避免在極端情況下崩潰
+        guard currentQuestionIndex < quizQuestions.count else {
+            return quizQuestions.last!
+        }
+        return quizQuestions[currentQuestionIndex]
     }
 
-    // 提交答案的邏輯不變
+    init() {
+        loadQuizData()
+    }
+
     func submitAnswer(_ answer: Int) -> Bool {
         let isCorrect = answer == currentQuestion.correctAnswer
         
         if isCorrect {
-            score += 10 // 分數依然可以作為捲動觸發器
+            score += 10
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
                 self.nextQuestion()
             }
@@ -39,10 +40,12 @@ class GameViewModel: ObservableObject {
     }
     
     private func nextQuestion() {
+        // ✨ [關鍵修正] 修正導致崩潰的邏輯
         if currentQuestionIndex < quizQuestions.count - 1 {
+            // 如果不是最後一題，正常 +1
             currentQuestionIndex += 1
         } else {
-            // 所有題目都答完了
+            // 如果是最後一題，不再增加 index，只設定完成狀態
             isQuizComplete = true
         }
     }
@@ -62,13 +65,10 @@ class GameViewModel: ObservableObject {
         currentQuestionIndex = 0
         isGameOver = false
         isQuizComplete = false
-        quizQuestions.shuffle() // ✨[新增] 重新開始時打亂題目順序，增加可玩性
+        quizQuestions.shuffle()
     }
-
-    // ✨[新增] 載入固定的 12 個問題
+    
     private func loadQuizData() {
-        // 這裡我為你產生 12 道題目作為範例
         self.quizQuestions = (1...12).map { _ in QuestionGenerator.generate() }
-        // 在真實產品中，你可以從一個 JSON 檔案或伺服器載入這些問題
     }
 }
