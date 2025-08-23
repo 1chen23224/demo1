@@ -8,16 +8,12 @@ struct LevelView: View {
     @State private var wrongAttempts: [Int] = []
 
     var body: some View {
-        // 根視圖使用 ZStack，以便我們可以自由地在任何層級疊加 UI 元件
         ZStack {
             // 主要的垂直背景佈局
             VStack(spacing: 0) {
                 // --- 上半部：佔據螢幕 50% 的高度 ---
                 ZStack(alignment: .bottom) {
-                    // 天空背景
                     Color(red: 135/255, green: 206/255, blue: 235/255)
-
-                    // 捲動世界，它會被 ZStack 的 alignment: .bottom 推到底部
                     ScrollingBackgroundView(scrollTrigger: viewModel.score)
                 }
                 .frame(height: UIScreen.main.bounds.height * 0.5)
@@ -25,13 +21,11 @@ struct LevelView: View {
 
                 // --- 下半部：佔據螢幕 50% 的高度 ---
                 ZStack {
-                    // 地面材質背景
                     Image("ground-texture")
                         .resizable()
                         .scaledToFill()
                         .clipped()
 
-                    // 選項按鈕
                     VStack {
                         Spacer()
                         ForEach(viewModel.currentQuestion.options, id: \.self) { option in
@@ -61,27 +55,30 @@ struct LevelView: View {
                     }
                     .padding(.horizontal)
 
-                    // 將進度條放在下半部的頂部，並向上偏移
                     VStack {
                         ProgressBar(
                             progress: Double(viewModel.currentQuestionIndex) / Double(viewModel.totalQuestions),
                             totalSteps: viewModel.totalQuestions
                         )
-                        .offset(y: -25) // 向上偏移，使其跨坐在中線上
+                        .offset(y: -25)
                         Spacer()
                     }
                 }
                 .frame(height: UIScreen.main.bounds.height * 0.5)
             }
+            // ✨ [最終修正] 讓這個負責切分畫面的 VStack 也忽略安全區
+            .edgesIgnoringSafeArea(.all)
+
             
             // --- 疊加在最上層的 UI ---
             
-            // ✨ [佈局修正] 將 QuestionBar 直接放到根 ZStack 中，並調整其垂直位置
+            // 問題欄
             VStack {
+                // 根據你之前的說明，你已經將 QuestionBar 放到你需要的位置，
+                // 這裡我將它保持在天空的中間位置作為範例
                 QuestionBar(text: viewModel.currentQuestion.text)
-                    // 使用 padding 來控制垂直位置，0.15 大約是天空的中間位置
                     .padding(.top, UIScreen.main.bounds.height * 0.15)
-                    .padding(.horizontal) // 保持水平方向的邊距
+                    .padding(.horizontal)
                 Spacer()
             }
 
@@ -91,7 +88,7 @@ struct LevelView: View {
                     Spacer()
                     HeartView(lives: viewModel.lives)
                         .padding(.trailing)
-                        .padding(.top, 60) // 與頂部保持一個固定距離
+                        .padding(.top, 60)
                 }
                 Spacer()
             }
@@ -111,7 +108,7 @@ struct LevelView: View {
 
 
 // MARK: - Subviews for LevelView
-// 輔助視圖的程式碼保持不變，但為了完整性，我依然附上
+// 輔助視圖的程式碼保持不變
 
 struct QuestionBar: View {
     let text: String
