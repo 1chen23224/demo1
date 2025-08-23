@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ScrollingBackgroundView: View {
     let scrollTrigger: Int
-    private let imageName = "world-background"
+    private let imageName = "world-background2"
     
     @State private var scrollPosition: CGFloat = 0
 
