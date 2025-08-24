@@ -6,10 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		992EE5C42E5B5C80006567C8 /* questions.csv in Resources */ = {isa = PBXBuildFile; fileRef = 992EE5C32E5B5C80006567C8 /* questions.csv */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		993F8BDE2E57624800A0D30A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -28,7 +24,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		992EE5C32E5B5C80006567C8 /* questions.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = questions.csv; sourceTree = "<group>"; };
 		993F8BCF2E57624400A0D30A /* CodeQuest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CodeQuest.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		993F8BDD2E57624800A0D30A /* CodeQuestTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodeQuestTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		993F8BE72E57624800A0D30A /* CodeQuestUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodeQuestUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -93,7 +88,6 @@
 		993F8BC62E57624400A0D30A = {
 			isa = PBXGroup;
 			children = (
-				992EE5C32E5B5C80006567C8 /* questions.csv */,
 				993F8BD12E57624400A0D30A /* CodeQuest */,
 				993F8BE02E57624800A0D30A /* CodeQuestTests */,
 				993F8BEA2E57624800A0D30A /* CodeQuestUITests */,
@@ -231,7 +225,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				992EE5C42E5B5C80006567C8 /* questions.csv in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
