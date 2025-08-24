@@ -11,5 +11,6 @@ struct QuizQuestion: Identifiable {
     let correctAnswer: String  // 若無法判定 → 取 options.first 或空字串
     let keyword: String?       // 空字串 → 轉成 nil
     let type: Int
+    let stages: [Int]
 
 }
