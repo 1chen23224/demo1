@@ -4,12 +4,17 @@ struct MainMenuView: View {
     @ObservedObject private var dataService = GameDataService.shared
     @State private var showingDetailForStage: Int? = nil
     
+    // --- ✨ 新增: 過場動畫狀態 ---
+    @State private var showTransitionOverlay = false
+    @State private var overlayOpacity: Double = 1.0
+    @State private var textOpacity: Double = 0.0   // 文字的透明度
+    @State private var pendingStage: Int? = nil
+    @State private var navigateToLevel = false
+    
     // MainMenuView 現在需要知道它是為哪個章節顯示的
     let chapterNumber: Int
     
     let onStageSelect: (Int) -> Void
-    
-    // ✨ [新增] 接收返回的動作
     let onBack: () -> Void
     
     // 計算這個章節包含哪些關卡 (假設每章 21 關)
@@ -42,7 +47,6 @@ struct MainMenuView: View {
                                 .padding(.horizontal, 40)
 
                             HStack(spacing: 50) {
-                                // ForEach 現在遍歷當前章節的關卡
                                 ForEach(stagesForThisChapter, id: \.self) { stage in
                                     StageIconView(
                                         stageNumber: stage,
@@ -63,7 +67,6 @@ struct MainMenuView: View {
                     .onAppear {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             withAnimation(.spring()) {
-                                // 自動滾動到這個章節中的最新關卡
                                 proxy.scrollTo(dataService.highestUnlockedStage, anchor: .center)
                             }
                         }
@@ -74,27 +77,22 @@ struct MainMenuView: View {
             }
             .padding(.top, 60)
             
-            // --- ✨ [主要修改處] 全新的返回按鈕設計 ---
+            // --- 返回按鈕 ---
             VStack {
                 HStack {
                     Button(action: onBack) {
                         ZStack {
-                            // 按鈕的底座，模仿木頭或石頭的質感
                             Circle()
                                 .fill(Color.black.opacity(0.3))
                                 .shadow(radius: 5)
-
-                            // 內圈的邊框，增加立體感
                             Circle()
                                 .strokeBorder(Color.white.opacity(0.4), lineWidth: 2)
                                 .padding(4)
-
-                            // 返回的箭頭圖示
                             Image(systemName: "arrow.backward")
                                 .font(.title3.weight(.bold))
                                 .foregroundColor(.white.opacity(0.9))
                         }
-                        .frame(width: 44, height: 44) // 標準的點擊目標尺寸
+                        .frame(width: 44, height: 44)
                     }
                     .padding(.horizontal, 65)
                     Spacer()
@@ -102,13 +100,45 @@ struct MainMenuView: View {
                 Spacer()
             }
             
+            // --- 關卡細節彈窗 ---
             if let stage = showingDetailForStage {
                 StageDetailView(
                     stageNumber: stage,
                     result: dataService.getResult(for: stage),
                     onStart: {
+                        // ✨ 修改: 先觸發黑屏過場，而不是直接進關卡
                         self.showingDetailForStage = nil
-                        onStageSelect(stage)
+                        pendingStage = stage
+                        showTransitionOverlay = true
+                        overlayOpacity = 0.0
+                        textOpacity = 0.0
+                        
+                        // Step 1: 黑幕漸入
+                        withAnimation(.easeIn(duration: 1)) {
+                            overlayOpacity = 1.0
+                        }
+                        // Step 2: 文字延遲後漸入
+                        withAnimation(.easeIn(duration: 0.8).delay(0.8)) {
+                            textOpacity = 1.0
+                        }
+                        
+                        // Step 3: 停留 + 進入關卡
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                            if let stage = pendingStage {
+                                onStageSelect(stage)
+                            }
+                            
+                            // Step 4: 黑幕 + 文字 一起漸出
+                            withAnimation(.easeOut(duration: 5.0)) {
+                                overlayOpacity = 0
+                            }
+                            
+                            // Step 5: 收尾
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                                showTransitionOverlay = false
+                                pendingStage = nil
+                            }
+                        }
                     },
                     onCancel: {
                         self.showingDetailForStage = nil
@@ -116,10 +146,27 @@ struct MainMenuView: View {
                 )
                 .transition(.scale.combined(with: .opacity))
             }
+            
+            // --- ✨ 新增: 黑幕過場層 ---
+            if showTransitionOverlay {
+                Color.black
+                    .opacity(overlayOpacity)
+                    .edgesIgnoringSafeArea(.all)
+                
+                if let stage = pendingStage {
+                    Text(stage==21 ? "最終關" : "Stage \(stage)")
+                        .font(.custom("CEF Fonts CJK Mono", size: 30))
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .opacity(textOpacity) // ✨ 漸入漸出
+                        .scaleEffect(0.9 + 0.1 * textOpacity) // ✨ 淡入時順便縮放
+                }
+            }
         }
         .animation(.spring(), value: showingDetailForStage)
     }
 }
+
 
 
 // ✨ [主要修改處]
@@ -166,8 +213,6 @@ struct StageIconView: View {
                                     .font(.system(size: 36, weight: .heavy, design: .rounded))
                                     .foregroundColor(.white)
                             } else {
-                                // ✨ 新的判斷邏輯在這裡 ✨
-                                // 如果是魔王關，顯示皇冠
                                 if isBossStage {
                                     Image(systemName: "crown.fill")
                                         .resizable()
@@ -176,7 +221,6 @@ struct StageIconView: View {
                                         .scaledToFit()
                                         .frame(width: 35, height: 35)
                                 } else {
-                                    // 否則，所有其他新關卡都用回您的自訂圖示
                                     Image("image_8b7251")
                                         .resizable().renderingMode(.template)
                                         .foregroundColor(.white)
@@ -269,6 +313,7 @@ struct StageDetailView: View {
                             .font(.custom("CEF Fonts CJK Mono", size: 16))
                             .bold().padding().frame(maxWidth: .infinity)
                             .background(Color.blue).cornerRadius(10)
+                        
                     }
                 }
                 .foregroundColor(.white)
@@ -286,35 +331,27 @@ struct StageDetailView: View {
 
 struct InteractiveMenuPreview: View {
     @ObservedObject private var dataService = GameDataService.shared
-    @State private var selectedStage: Int? = nil
     @State private var isGameActive = false
-
+    @State private var isTransitioning = false
+    @State private var selectedStage: Int? = nil
     var body: some View {
-        // 這份預覽現在模擬的是「關卡選擇」畫面，而不是章節選擇
-        // 所以我們直接建立一個 MainMenuView
-        
-        // ✨ [主要修改處]
         MainMenuView(
-            chapterNumber: 1, // <-- 為預覽提供一個範例章節編號
+            chapterNumber: 1,
             onStageSelect: { stageNumber in
                 print("Preview: Stage \(stageNumber) was selected.")
-                // 在預覽中，我們不實際跳轉，只印出訊息
             },
-            // ✨ [修改] 為 Preview 提供一個假的 onBack 動作
             onBack: {
                 print("Preview: Back button was tapped.")
             }
         )
         .overlay(alignment: .bottom) {
             HStack {
-                // 清除資料的按鈕
                 Button(action: { dataService.resetProgress() }) {
                     Image(systemName: "arrow.counterclockwise.circle.fill")
                         .foregroundColor(.white).padding()
                         .background(Color.black.opacity(0.5)).clipShape(Circle())
                 }
                 Spacer()
-                // 快速通關的按鈕
                 Button(action: { dataService.unlockAllStages() }) {
                     Image(systemName: "chevron.right.2")
                         .foregroundColor(.white.opacity(0.8)).padding()

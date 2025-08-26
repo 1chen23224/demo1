@@ -9,7 +9,7 @@ struct LevelView: View {
     @State private var wrongAttempts: [String] = []
     @State private var isImagePopupVisible = false
     @State private var autoClosePopupTask: DispatchWorkItem?
-    
+
     private var currentProgress: Double {
         if viewModel.totalQuestions == 0 { return 0 }
         return Double(viewModel.correctlyAnsweredCount) / Double(viewModel.totalQuestions)
@@ -17,6 +17,7 @@ struct LevelView: View {
 
     var body: some View {
         ZStack {
+            
             // --- 主要遊戲畫面 ---
             VStack(spacing: 0) {
                 ZStack(alignment: .bottom) {
@@ -50,7 +51,8 @@ struct LevelView: View {
             }
             .edgesIgnoringSafeArea(.all)
 
-            // --- UI 疊加層 ---
+    
+        
             VStack {
                 if let imageName = viewModel.currentQuestion.imageName {
                     Button(action: { withAnimation(.spring()) { isImagePopupVisible = true } }) {

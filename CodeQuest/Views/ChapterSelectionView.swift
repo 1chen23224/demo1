@@ -104,61 +104,92 @@ struct BottomTabButton: View {
         .frame(maxWidth: .infinity)
     }
 }
-// ✨ [主要修改處] 將 chapterMask 輔助函式，重構為一個獨立、完整的 View 結構
+
 struct ChapterMaskView: View {
     @ObservedObject private var dataService = GameDataService.shared
     
     let chapterNumber: Int
     let onChapterSelect: (Int) -> Void
     
-    // 動畫狀態儲存在自己的 View 結構中
     @State private var isPulsing = false
-    
+    @State private var handOffset: CGFloat = 0 // 手指動畫偏移
+    @State private var handUp = false
     var body: some View {
         let isUnlocked = dataService.isChapterUnlocked(chapterNumber)
         let isNew = chapterNumber == dataService.highestUnlockedChapter
+   
 
-        // 使用 Button 取代 .onTapGesture，點擊偵測更精準，解決 Bug
-        Button(action: {
-            onChapterSelect(chapterNumber)
-        }) {
-            Image("selecting-\(chapterNumber)")
-                .resizable()
-                .scaledToFit()
-                .overlay(
-                    ZStack {
-                        if !isUnlocked {
-                            // 未解鎖：深灰色遮罩
-                            Color.black.opacity(0.785)
-                        } else if isNew {
-                            // 最新可玩：黃色呼吸光暈
-                            Color.white.opacity(isPulsing ? 0.5 : 0.15)
-                                .blur(radius: 15)
+        ZStack {
+            // --- 原本的章節按鈕 ---
+            Button(action: {
+                onChapterSelect(chapterNumber)
+            }) {
+                Image("selecting-\(chapterNumber)")
+                    .resizable()
+                    .scaledToFit()
+                    .overlay(
+                        Group {
+                            if !isUnlocked {
+                                // 未解鎖 = 黑遮罩
+                                Color.black.opacity(0.78)
+                            } else if isNew {
+                                // ✨ 最新解鎖 = 黃色呼吸光暈
+                                Color.yellow.opacity(isPulsing ? 1 : 0.3)
+                                    .blur(radius: 25)
+                                    // ✅ 只針對這層做動畫
+                                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true),
+                                               value: isPulsing)
+                                Color.white.opacity(isPulsing ? 0.6 : 0.1) // 外層淡光
+                                    .blur(radius: 40)                            }
                         }
-                    }
-                    .mask(Image("selecting-\(chapterNumber)").resizable().scaledToFit())
-                )
-        }
-        .disabled(!isUnlocked) // 未解鎖的按鈕會被禁用，無法點擊
-        // ✨ 使用 onChange 來監聽 isNew 的變化，並在初次顯示時也觸發
-        .onChange(of: isNew, initial: true) { _, newValue in
-            if newValue {
-                // 如果 isNew 變為 true，啟動動畫
-                // 加上延遲是為了讓切換效果更自然
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-                        isPulsing = true
-                    }
+                            .mask(Image("selecting-\(chapterNumber)").resizable().scaledToFit())
+                    )
+            }
+            .disabled(!isUnlocked)
+            
+            
+            if isUnlocked && isNew {
+                VStack {
+                    Image("paw")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 100, height: 100)
+                        .offset(y: handUp ? -20 : 0) // 只上下
+                        .onAppear {
+                            handUp = true
+                        }
+                        .onDisappear {
+                            handUp = false
+                        }
+                        .animation(
+                            .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
+                            value: handUp
+                        )
+                        .zIndex(10) // 確保永遠在最上層
+                        .allowsHitTesting(false)
+                    Spacer().frame(height: 60)
                 }
-            } else {
-                // 如果 isNew 變為 false，移除動畫
-                withAnimation {
-                    isPulsing = false
-                }
+            }else if isUnlocked{
+                // 🔢 已解鎖但不是最新章 → 顯示章節數字
+                Text("\(chapterNumber)")
+                    .font(.custom("CEF Fonts CJK Mono", size: 50))
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .shadow(radius: 5)
+                    .offset(x:20,y: -30)
+                    .offset(chapterNumber == 4 ? CGSize(width: -95, height: 60) : .zero) // ✅ 第4章換位置
+                    .zIndex(10)
+                    .allowsHitTesting(false) // 🛡 也不要擋點擊
             }
         }
+        // ✅ 只控制 state，不用包 withAnimation
+        .onChange(of: isNew, initial: true) { _, newValue in
+            isPulsing = newValue
+        }
+        
     }
 }
+
 
 struct ChapterStatePreview: View {
     @ObservedObject private var dataService = GameDataService.shared
