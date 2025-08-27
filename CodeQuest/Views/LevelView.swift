@@ -15,6 +15,16 @@ struct LevelView: View {
         return Double(viewModel.correctlyAnsweredCount) / Double(viewModel.totalQuestions)
     }
 
+    // 計算當前章號
+    private var currentChapter: Int {
+        ((viewModel.currentStage - 1) / 21) + 1
+    }
+    
+    // 根據章號決定角色圖
+    private var characterImageName: String {
+        return currentChapter >= 2 ? "character2" : "progress-character"
+    }
+
     var body: some View {
         ZStack {
             
@@ -43,7 +53,7 @@ struct LevelView: View {
                     }
                     .padding(.horizontal)
                     VStack {
-                        ProgressBar(progress: currentProgress).offset(y: -25)
+                        ProgressBar(progress: currentProgress, characterImageName: characterImageName).offset(y: -25)
                         Spacer()
                     }
                 }
@@ -69,30 +79,28 @@ struct LevelView: View {
                     .transition(.scale.combined(with: .opacity))
             }
             
-            // ✨ [主要修改處] 使用一個 HStack 來佈局所有頂部元件
+            // --- 頂部UI ---
             VStack {
                 HStack(alignment: .top) {
-                    // --- 左上角集群 ---
+                    // 左上角
                     HStack(spacing: 16) {
-                        // 新的「返回主選單」按鈕，使用房子圖示
                         Button(action: {
                             self.isGameActive = false
                         }) {
                             Image(systemName: "house.fill")
                                 .font(.title)
                                 .foregroundColor(.white.opacity(0.8))
-                                .frame(width: 50, height: 50) // 給定固定大小以對齊
+                                .frame(width: 50, height: 50)
                                 .background(Circle().fill(Color.black.opacity(0.5)))
                                 .shadow(radius: 5)
                         }
                         
-                        // 移到這裡的提示按鈕
                         HintView(keyword: viewModel.currentQuestion.keyword, isHintVisible: viewModel.isHintVisible, action: { viewModel.showHint() })
                     }
                     
                     Spacer()
                     
-                    // --- 右上角集群 ---
+                    // 右上角
                     VStack(alignment: .trailing, spacing: 8) {
                         HeartView(lives: viewModel.lives)
                         ComboView(combo: viewModel.comboCount)
@@ -100,12 +108,12 @@ struct LevelView: View {
                     }
                 }
                 .padding(.horizontal)
-                .padding(.top, 50) // 控制頂部安全距離
+                .padding(.top, 50)
                 
                 Spacer()
             }
             
-            // 顯示結算畫面的邏輯 (保持不變)
+            // 結算畫面
             if viewModel.isQuizComplete || viewModel.isGameOver {
                 ResultView(
                     stageNumber: viewModel.currentStage,
@@ -128,9 +136,8 @@ struct LevelView: View {
             handleNewQuestion()
         }
     }
-    // ✨ [新增] 計算背景圖檔名的輔助屬性
+    
     private var backgroundName: String {
-
         return viewModel.backgroundImageName
     }
     
@@ -166,11 +173,9 @@ struct LevelView: View {
     }
 }
 
-
-// MARK: - Subviews for LevelView
+// ------------------ Subviews ------------------
 
 struct ResultView: View {
-    
     let stageNumber: Int
     let evaluation: String
     let maxCombo: Int
@@ -179,7 +184,7 @@ struct ResultView: View {
     let backToMenuAction: () -> Void
 
     var isBossStage: Bool {
-        return stageNumber == 21
+        return stageNumber % 21 == 0
     }
 
     private let textColor = Color(red: 85/255, green: 65/255, blue: 50/255)
@@ -195,10 +200,10 @@ struct ResultView: View {
                 
                 ZStack {
                     
-                    Text(isBossStage ? "交通標誌 最終關" : "交通標誌 第 \(stageNumber) 關")
-                        .font(.system(size: 24, weight: .bold)) // 稍微縮小字體以適應長度
+                    Text(isBossStage ? "第 \((stageNumber - 1) / 21 + 1) 章最終關" : "第 \((stageNumber - 1) / 21 + 1) 章第 \(stageNumber) 關")
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundColor(textColor)
-                        .offset(x: 65, y: -24) // 調整 x 偏移
+                        .offset(x: 65, y: -24)
                     
                     evaluationText()
                         .font(.system(size: 50, weight: .heavy, design: .rounded))
@@ -252,6 +257,8 @@ struct ResultView: View {
         }
     }
 }
+
+
 
 struct HintView: View {
     let keyword: String?
@@ -317,7 +324,18 @@ struct ImagePopupView: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.6).edgesIgnoringSafeArea(.all).onTapGesture { withAnimation(.spring()) { isVisible = false } }
-            Image(imageName).resizable().scaledToFit().frame(width: UIScreen.main.bounds.width * 0.7).padding().background(Color.white).cornerRadius(20).shadow(color: .black.opacity(0.5), radius: 20).overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.yellow, lineWidth: 5))
+            Image(imageName)
+                .resizable()
+                // ✨ [主要修改處] 新增以下兩個修飾符
+                .interpolation(.high) // 1. 使用高品質的圖片縮放插值
+                .antialiased(true)    // 2. 開啟抗鋸齒效果
+                .scaledToFit()
+                .frame(width: UIScreen.main.bounds.width * 0.8) // 稍微放大一點點，看得更清楚
+                .padding()
+                .background(Color.white)
+                .cornerRadius(20)
+                .shadow(color: .black.opacity(0.5), radius: 20)
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.yellow, lineWidth: 5))
         }
     }
 }
@@ -337,6 +355,7 @@ struct QuestionBar: View {
 
 struct ProgressBar: View {
     let progress: Double
+    let characterImageName: String
     private let barWidth: CGFloat = 380
     private let barHeight: CGFloat = 12
     private let characterSize: CGFloat = 70
@@ -344,8 +363,15 @@ struct ProgressBar: View {
         ZStack(alignment: .leading) {
             Capsule().fill(Color.black.opacity(0.5)).frame(width: barWidth, height: barHeight)
             Capsule().fill(Color.yellow).frame(width: barWidth * progress, height: barHeight)
-            Image("progress-character").resizable().scaledToFit().frame(width: characterSize, height: characterSize).offset(y: -characterSize / 3.3 + barHeight / 2).offset(x: barWidth * progress - (characterSize / 2))
-        }.frame(width: barWidth, height: characterSize).animation(.spring(response: 0.6, dampingFraction: 0.6), value: progress)
+            Image(characterImageName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: characterSize, height: characterSize)
+                .offset(y: -characterSize / 3.3 + barHeight / 2)
+                .offset(x: barWidth * progress - (characterSize / 2))
+        }
+        .frame(width: barWidth, height: characterSize)
+        .animation(.spring(response: 0.6, dampingFraction: 0.6), value: progress)
     }
 }
 

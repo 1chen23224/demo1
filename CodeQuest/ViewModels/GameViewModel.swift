@@ -8,7 +8,7 @@ class GameViewModel: ObservableObject {
     
     @Published var quizQuestions: [QuizQuestion] = []
     @Published var questionRefreshID = UUID()
-
+    
     var availableStages: Set<Int> {
         Set(allQuestions.flatMap { $0.stages })
     }
@@ -105,20 +105,34 @@ class GameViewModel: ObservableObject {
     // === 開始新遊戲 ===
     func startGame(stage: Int) {
         self.currentStage = stage
-        
-        if stage == 21 {
-            let bossQuestions = allQuestions.filter { $0.level == 1 }
-            self.quizQuestions = Array(bossQuestions.shuffled().prefix(30))
-            print("Starting BOSS stage 21 with \(self.quizQuestions.count) random Level 1 questions.")
-        } else {
-            let questionsForThisStage = allQuestions.filter { $0.stages.contains(stage) }
 
-            if stage > 0 && stage % 5 == 0 {
-                self.quizQuestions = Array(questionsForThisStage.shuffled().prefix(15))
-                print("Starting REVIEW stage \(stage) with \(self.quizQuestions.count) random questions.")
+        // 🔧 以章為單位計算（每章 21 關，章內重新從 1 計數）
+        let stagesPerChapter = 21
+        let chapterNumber = ((stage - 1) / stagesPerChapter) + 1
+        let stageInChapter = ((stage - 1) % stagesPerChapter) + 1
+        
+        // 🔧 改為以「章內關卡」與 CSV 的 level 分流
+        if stageInChapter == stagesPerChapter {
+            // 🔴 最終關（第 21 關）：從本章 (level == chapterNumber) 題庫中取題
+            let bossQuestions = allQuestions.filter { $0.level == chapterNumber }
+            self.quizQuestions = Array(bossQuestions.shuffled().prefix(30))
+            print("Starting BOSS stage \(stageInChapter) of Chapter \(chapterNumber) with \(self.quizQuestions.count) random Level \(chapterNumber) questions.")
+        } else {
+            // 一般/複習關題庫來源
+            // 🔧 先按照「章 + 章內關卡」抓該關題目（一般關）
+            var questionsForThisStage = allQuestions.filter {
+                $0.level == chapterNumber && $0.stages.contains(stageInChapter)
+            }
+            
+            if stageInChapter > 0 && stageInChapter % 5 == 0 {
+                // 🔵 複習關（5,10,15,20）：從本章所有題目抽樣
+                let reviewPool = allQuestions.filter { $0.level == chapterNumber }
+                self.quizQuestions = Array(reviewPool.shuffled().prefix(15))
+                print("Starting REVIEW stage \(stageInChapter) of Chapter \(chapterNumber) with \(self.quizQuestions.count) random Level \(chapterNumber) questions.")
             } else {
+                // ⚪ 一般關（章內 1~4,6~9,11~14,16~19）
                 self.quizQuestions = questionsForThisStage.shuffled()
-                print("Starting stage \(stage) with \(self.quizQuestions.count) questions.")
+                print("Starting stage \(stageInChapter) of Chapter \(chapterNumber) with \(self.quizQuestions.count) questions.")
             }
         }
         
