@@ -75,11 +75,13 @@ class GameViewModel: ObservableObject {
     
     // === 背景圖用 ===
     var backgroundImageName: String {
-        if currentStage == -1 {
-            return "level1-1" // 錯題重溫 / 總題複習
-        } else {
-            return "level\(currentStage)-1" // 普通關卡
-        }
+        if currentStage == -1 { return "level1-1" } // 學習中心建立的自訂複習關
+        guard currentStage > 0 else { return "level1-1" }
+        let chapterSize = 21
+        let chapterNumber = ((currentStage - 1) / chapterSize) + 1
+        let stageInChapter = ((currentStage - 1) % chapterSize) + 1
+        let mapIndex = ((stageInChapter - 1) % 5) + 1
+        return "level\(chapterNumber)-\(mapIndex)"
     }
     
     // === 初始化 ===
