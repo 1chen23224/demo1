@@ -9,67 +9,47 @@ struct StudyView: View {
     let onBack: () -> Void
     @State private var selectedReviewType = 0
     @State private var showClearAlert = false
+    @State private var showGuideOverlay = true // ✅ 第一次載入顯示
     
     var body: some View {
         ZStack {
-            // 背景固定用 stage 背景
-            Image("stage-background")
-                .resizable()
-                .scaledToFill()
-                .edgesIgnoringSafeArea(.all)
+            // 🔹 背景 & 內容
+            GeometryReader { geo in
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    Image("stage-background")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height + 100)
+                        .clipped()
+                        .ignoresSafeArea()
+                }
+            }
+
             
             VStack(spacing: 20) {
-                // 模式切換
-                Picker("複習模式", selection: $selectedReviewType) {
-                    Text("錯題重溫").tag(0)
-                    Text("總複習").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .background(Color.black.opacity(0.2))
-                .cornerRadius(8)
-                .padding(.horizontal)
-                
-                // 不同的子畫面
-                if selectedReviewType == 0 {
+                TabView(selection: $selectedReviewType) {
                     WrongQuestionsReviewView(
                         allQuestions: viewModel.allQuestions,
                         onStartReview: onStartReview
                     )
-                } else {
+                    .tag(0)
+
                     AllQuestionsReviewView(
                         allQuestions: viewModel.allQuestions,
                         onStartReview: onStartReview
                     )
+                    .tag(1)
                 }
-                Spacer()
+                .tabViewStyle(.page(indexDisplayMode: .never))
             }
             .padding(.top, 20)
-            
-            // --- 上方返回 + 清除 ---
-            VStack {
-                HStack {
-                    // 返回按鈕
-                    Button(action: onBack) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.black.opacity(0.3))
-                                .shadow(radius: 5)
-                            Circle()
-                                .strokeBorder(Color.white.opacity(0.4), lineWidth: 2)
-                                .padding(4)
-                            Image(systemName: "arrow.backward")
-                                .font(.title3.weight(.bold))
-                                .foregroundColor(.white.opacity(0.9))
-                        }
-                        .frame(width: 44, height: 44)
-                    }
-                    .padding(.top, -30)
-                    .padding(.horizontal, 80)
-                    
-                    Spacer()
-                    
-                    // 垃圾桶按鈕（只有錯題重溫時顯示）
-                    if selectedReviewType == 0, !dataService.wrongQuestionIDs.isEmpty {
+
+            // 👉 右上角垃圾桶（只在錯題頁顯示）
+            if selectedReviewType == 0, !dataService.wrongQuestionIDs.isEmpty {
+                VStack {
+                    HStack {
+                        Spacer() // 把按鈕推到右邊
                         Button {
                             showClearAlert = true
                         } label: {
@@ -84,11 +64,8 @@ struct StudyView: View {
                                     .font(.title3.weight(.bold))
                                     .foregroundColor(.red.opacity(0.9))
                             }
-                            .frame(width: 44, height: 44)
+                            .frame(width: 50, height: 50)
                         }
-                        .padding(.top, -30)
-                        .padding(.horizontal, 80)
-                        
                         .alert("確定要清除所有錯題嗎？", isPresented: $showClearAlert) {
                             Button("取消", role: .cancel) {}
                             Button("清除", role: .destructive) {
@@ -97,13 +74,59 @@ struct StudyView: View {
                         } message: {
                             Text("此操作無法復原，錯題紀錄將會消失。")
                         }
+                        .padding(.trailing, 60)
+                        .padding(.top, 20)
                     }
+                    Spacer()
                 }
-                Spacer()
+            }
+            
+            // 👉 第一次進來的提示 Overlay
+            if showGuideOverlay {
+                // 背景半透明，但不擋觸控
+                Color.black.opacity(0.6)
+                    .edgesIgnoringSafeArea(.all)
+                    .allowsHitTesting(false)
+                
+                VStack(spacing: 20) {
+                    Text("提示")
+                        .font(.title)
+                        .bold()
+                        .foregroundColor(.white)
+                    Text("你可以向右滑動切換到『總複習』頁面")
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                    
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 40, weight: .bold))
+                        .foregroundColor(.yellow)
+                        .padding(.top, 10)
+                    
+                    Button("我知道了") {
+                        withAnimation {
+                            showGuideOverlay = false
+                        }
+                        UserDefaults.standard.set(true, forKey: "hasSeenStudyGuide")
+                    }
+                    .padding()
+                    .background(Color.white.opacity(0.9))
+                    .foregroundColor(.black)
+                    .cornerRadius(12)
+                }
+                .padding()
+                .zIndex(1) // 確保提示在最上層
+            }
+        }
+        .onAppear {
+            if UserDefaults.standard.bool(forKey: "hasSeenStudyGuide") {
+                showGuideOverlay = false
             }
         }
     }
 }
+
+
 // MARK: - 錯題重溫視圖 (已修正)
 struct WrongQuestionsReviewView: View {
     @ObservedObject private var dataService = GameDataService.shared
@@ -148,11 +171,12 @@ struct WrongQuestionsReviewView: View {
                     let countToTake = Int(Double(wrongQuestions.count) * percentage)
                     reviewQuestions.append(contentsOf: wrongQuestions.shuffled().prefix(countToTake))
                 }
+                
                 if !reviewQuestions.isEmpty { onStartReview(reviewQuestions.shuffled()) }
             }
             .buttonStyle(.borderedProminent)
             .font(.custom("CEF Fonts CJK Mono", size: 20))
-            .padding()
+            .padding(.bottom, 33)
             .disabled(totalQuestionsToReview == 0) // 如果總數為 0，禁用按鈕
         }
         .padding()
@@ -218,7 +242,7 @@ struct AllQuestionsReviewView: View {
             }
             .buttonStyle(.borderedProminent)
             .font(.custom("CEF Fonts CJK Mono", size: 20))
-            .padding()
+            .padding(.bottom, 33)
             .disabled(totalQuestionsToReview == 0) // 如果總數為 0，禁用按鈕
         }
         .padding()
@@ -240,16 +264,15 @@ struct ReviewChapterRow: View {
         VStack(alignment: .leading) {
             HStack {
                 Text("\(title): 共 \(totalCount) 題")
-                    .padding(.horizontal,50)
+                    .padding(.horizontal,10)
                 Spacer()
                 Text("題目比例: \(Int(percentage * 100))%")
-                .padding(.horizontal,50)
+                .padding(.horizontal,10)
             }
             .font(.custom("CEF Fonts CJK Mono", size: 14)) // 縮小一點
             
             Slider(value: $percentage, in: 0...1, step: 0.01)
-                .scaleEffect(x: 0.9, y: 0.8, anchor: .center) // ← 縮小
-                .padding(.horizontal, 10)
+
         }
         .padding()
         .background(Color.black.opacity(0.2))

@@ -1,17 +1,49 @@
 import Foundation
 import Combine
 
+// ✨ 關卡佈局管理器
+struct ChapterLayout {
+    static let chapterSizes: [Int: Int] = [
+        1: 21,
+        2: 12,
+        3: 19,
+        4: 16,
+        5: 15
+    ]
+    
+    static func getStageCount(for chapter: Int) -> Int {
+        return chapterSizes[chapter, default: 0]
+    }
+    
+    static func isBossStage(chapter: Int, stageInChapter: Int) -> Bool {
+        return stageInChapter == getStageCount(for: chapter)
+    }
+    
+    static func isReviewStage(chapter: Int, stageInChapter: Int) -> Bool {
+        guard !isBossStage(chapter: chapter, stageInChapter: stageInChapter) else { return false }
+        let totalStages = getStageCount(for: chapter)
+        let numberOfReviewStages = Int((Double(totalStages) * 0.25).rounded())
+        guard numberOfReviewStages > 0 else { return false }
+        let interval = Double(totalStages) / Double(numberOfReviewStages + 1)
+        for i in 1...numberOfReviewStages {
+            let reviewStagePosition = (interval * Double(i)).rounded()
+            if Int(reviewStagePosition) == stageInChapter {
+                return true
+            }
+        }
+        return false
+    }
+}
+
 class GameViewModel: ObservableObject {
     private let dataService = GameDataService.shared
-    
     private(set) var allQuestions: [QuizQuestion] = []
     
     @Published var quizQuestions: [QuizQuestion] = []
     @Published var questionRefreshID = UUID()
     
-    
     var availableStages: Set<Int> {
-        Set(allQuestions.flatMap { $0.stages })
+        Set(allQuestions.map { $0.stage })
     }
     
     private(set) var currentStage: Int = 1
@@ -29,20 +61,13 @@ class GameViewModel: ObservableObject {
     @Published var comboCount: Int = 0
     @Published var maxComboAchieved: Int = 0
 
-    var totalQuestions: Int {
-        quizQuestions.count
-    }
+    var totalQuestions: Int { quizQuestions.count }
     
     var finalEvaluation: String {
         if isGameOver { return "F" }
         switch lives {
         case 3: return "S"
-        case 2:
-            if totalQuestions > 0 && Double(maxComboAchieved) > Double(totalQuestions) / 1.2 {
-                return "A"
-            } else {
-                return "B"
-            }
+        case 2: return (totalQuestions > 0 && Double(maxComboAchieved) > Double(totalQuestions) / 1.2) ? "A" : "B"
         case 1: return "C"
         default: return "F"
         }
@@ -50,25 +75,20 @@ class GameViewModel: ObservableObject {
     
     var currentQuestion: QuizQuestion {
         if isReviewingWrongQuestions {
-            guard let question = wronglyAnsweredQuestions.first else {
-                return QuizQuestion(
-                    questionID: 0, level: 0,
-                    questionText: "所有題目已完成！",
-                    imageName: nil, options: [],
-                    correctAnswer: "", keyword: nil,
-                    type: 0, stages: []
-                )
-            }
-            return question
+            return wronglyAnsweredQuestions.first ?? QuizQuestion(
+                questionID: 0, level: 0,
+                questionText: "所有題目已完成！",
+                imageName: nil, options: [], correctAnswer: "",
+                keyword: nil, type: 0, stage:0
+            )
         } else {
             guard !quizQuestions.isEmpty, currentQuestionIndex < quizQuestions.count else {
                 return QuizQuestion(
                     questionID: 0, level: 0,
                     questionText: "載入中...",
-                    imageName: nil, options: [],
-                    correctAnswer: "", keyword: nil,
-                    type: 0, stages: []
-                )
+                    imageName: nil, options: [], correctAnswer: "",
+                    keyword: nil, type: 0, stage: 0
+            )
             }
             return quizQuestions[currentQuestionIndex]
         }
@@ -76,7 +96,7 @@ class GameViewModel: ObservableObject {
     
     // === 背景圖用 ===
     var backgroundImageName: String {
-        if currentStage == -1 { return "level1-1" } // 學習中心建立的自訂複習關
+        if currentStage == -1 { return "level1-1" }
         guard currentStage > 0 else { return "level1-1" }
         let chapterSize = 21
         let chapterNumber = ((currentStage - 1) / chapterSize) + 1
@@ -90,7 +110,7 @@ class GameViewModel: ObservableObject {
         self.allQuestions = dataService.allQuestions
         
         if let questions = customQuestions {
-            self.currentStage = -1   // -1 = 自訂複習模式
+            self.currentStage = -1
             self.quizQuestions = questions
             print("Starting CUSTOM REVIEW with \(questions.count) questions.")
             resetGameStates()
@@ -99,52 +119,39 @@ class GameViewModel: ObservableObject {
         }
     }
     
-    convenience init() {
-        self.init(stage: 0)
-    }
+    convenience init() { self.init(stage: 0) }
     
-    // === 開始新遊戲 ===
     func startGame(stage: Int) {
         self.currentStage = stage
-
-        // 🔧 以章為單位計算（每章 21 關，章內重新從 1 計數）
-        let stagesPerChapter = 21
-        let chapterNumber = ((stage - 1) / stagesPerChapter) + 1
-        let stageInChapter = ((stage - 1) % stagesPerChapter) + 1
+        let (chapterNumber, stageInChapter) = dataService.chapterAndStageInChapter(for: stage)
+        let chapterSize = dataService.stagesInChapter(chapterNumber)
         
-        // 🔧 改為以「章內關卡」與 CSV 的 level 分流
-        if stageInChapter == stagesPerChapter {
-            // 🔴 最終關（第 21 關）：從本章 (level == chapterNumber) 題庫中取題
+        let reviewCount = max(1, chapterSize / 6)
+        let interval = chapterSize / (reviewCount + 1)
+        let reviewStages = Set((1...reviewCount).map { $0 * interval })
+        
+        if stageInChapter == chapterSize {
+            // Boss
             let bossQuestions = allQuestions.filter { $0.level == chapterNumber }
             self.quizQuestions = Array(bossQuestions.shuffled().prefix(30))
-            print("Starting BOSS stage \(stageInChapter) of Chapter \(chapterNumber) with \(self.quizQuestions.count) random Level \(chapterNumber) questions.")
+        } else if reviewStages.contains(stageInChapter) {
+            // Review
+            let questions = allQuestions.filter { $0.level == chapterNumber }
+            self.quizQuestions = Array(questions.shuffled().prefix(15))
         } else {
-            // 一般/複習關題庫來源
-            // 🔧 先按照「章 + 章內關卡」抓該關題目（一般關）
-            var questionsForThisStage = allQuestions.filter {
-                $0.level == chapterNumber && $0.stages.contains(stageInChapter)
+            // Normal
+            let questionsForThisStage = allQuestions.filter {
+                $0.level == chapterNumber && $0.stage == stageInChapter   // ✅ 改成單一 stage
             }
-            
-            if stageInChapter > 0 && stageInChapter % 5 == 0 {
-                // 🔵 複習關（5,10,15,20）：從本章所有題目抽樣
-                self.quizQuestions = Array(questionsForThisStage.shuffled().prefix(15))
-                print("Starting REVIEW stage \(stageInChapter) of Chapter \(chapterNumber) with \(self.quizQuestions.count) random Level \(chapterNumber) questions.")
-            } else {
-                // ⚪ 一般關（章內 1~4,6~9,11~14,16~19）
-                self.quizQuestions = questionsForThisStage.shuffled()
-                print("Starting stage \(stageInChapter) of Chapter \(chapterNumber) with \(self.quizQuestions.count) questions.")
-            }
+            self.quizQuestions = questionsForThisStage.shuffled()
         }
         
         resetGameStates()
     }
     
     func restartGame() {
-        if currentStage == -1 {
-            resetGameStates()
-        } else {
-            startGame(stage: self.currentStage)
-        }
+        if currentStage == -1 { resetGameStates() }
+        else { startGame(stage: self.currentStage) }
     }
     
     private func resetGameStates() {
@@ -160,7 +167,7 @@ class GameViewModel: ObservableObject {
         comboCount = 0
         maxComboAchieved = 0
     }
-
+    
     // === 遊戲流程 ===
     func showHint() { isHintVisible = true }
     
@@ -168,7 +175,6 @@ class GameViewModel: ObservableObject {
         let isCorrect = answer == currentQuestion.correctAnswer
         if isCorrect { handleCorrectAnswer() }
         else { handleWrongAnswer() }
-        
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.moveToNextState()
         }
@@ -186,7 +192,6 @@ class GameViewModel: ObservableObject {
         loseLife()
         comboCount = 0
         dataService.addWrongQuestion(id: currentQuestion.questionID)
-        
         guard !isGameOver else { return }
         
         if isReviewingWrongQuestions {
@@ -206,7 +211,7 @@ class GameViewModel: ObservableObject {
         }
         isHintVisible = false
         defer { questionRefreshID = UUID() }
-
+        
         if isReviewingWrongQuestions {
             if wronglyAnsweredQuestions.isEmpty {
                 isQuizComplete = true
@@ -222,9 +227,6 @@ class GameViewModel: ObservableObject {
                 if wronglyAnsweredQuestions.isEmpty {
                     isQuizComplete = true
                     saveGameResult()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        self.isQuizComplete = true
-                    }
                 } else {
                     objectWillChange.send()
                 }
@@ -239,7 +241,6 @@ class GameViewModel: ObservableObject {
     
     private func saveGameResult() {
         guard currentStage > 0 else { return }
-        
         let result = StageResult(
             evaluation: self.finalEvaluation,
             maxCombo: self.maxComboAchieved,

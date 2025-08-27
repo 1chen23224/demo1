@@ -10,33 +10,50 @@ struct MainMenuView: View {
     @State private var textOpacity: Double = 0.0   // 文字透明度
     @State private var pendingStage: Int? = nil
 
+    // --- ✨ 新手教學狀態 ---
+    @State private var showTutorial = false
+    @State private var tutorialStep = 0
+    @State private var arrowOffset: CGFloat = -80
+
+    @State private var dimBackground = true
+    @State private var tutorialTextAtBottom = false
+
+    // --- ✨ 新增：過關祝賀 ---
+    @State private var showCongrats = false
+
     // MainMenuView 需要知道它是第幾章
     let chapterNumber: Int
 
     let onStageSelect: (Int) -> Void
     let onBack: () -> Void
-
-    // 計算章節內的關卡範圍 (每章 21 關)
+    
+    // 👇 新增：傳出過場狀態給 GameNavigationView
+    @Binding var isOverlayActive: Bool
+    
+    
     private var stagesForThisChapter: Range<Int> {
-        let chapterSize = 21
-        let startStage = (chapterNumber - 1) * chapterSize + 1
-        let endStage = chapterNumber * chapterSize
+        let totalBefore = dataService.chapterStageCounts.prefix(chapterNumber - 1).reduce(0, +)
+        let chapterSize = dataService.stagesInChapter(chapterNumber)
+        let startStage = totalBefore + 1
+        let endStage = totalBefore + chapterSize
         return startStage..<(endStage + 1)
     }
 
     var body: some View {
         ZStack {
+            // --- 背景 ---
             Image("stage-background")
                 .resizable()
                 .scaledToFill()
                 .edgesIgnoringSafeArea(.all)
-
+            
+            // --- 主內容 ---
             VStack(spacing: 50) {
                 Text("第 \(chapterNumber) 章")
                     .font(.custom("CEF Fonts CJK Mono", size: 40))
                     .foregroundColor(.white)
                     .shadow(color: .black.opacity(0.3), radius: 5, y: 5)
-
+                
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
                         ZStack(alignment: .center) {
@@ -44,20 +61,25 @@ struct MainMenuView: View {
                                 .fill(Color.black.opacity(0.25))
                                 .frame(height: 25)
                                 .padding(.horizontal, 40)
-
+                            
                             HStack(spacing: 50) {
                                 ForEach(stagesForThisChapter, id: \.self) { stage in
-                                    StageIconView(
-                                        stageNumber: stage,
-                                        chapterNumber: chapterNumber,
-                                        isUnlocked: dataService.isStageUnlocked(stage),
-                                        isNew: stage == dataService.highestUnlockedStage,
-                                        result: dataService.getResult(for: stage),
-                                        action: {
-                                            self.showingDetailForStage = stage
-                                        }
-                                    )
-                                    .id(stage)
+                                    ZStack {
+                                        StageIconView(
+                                            stageNumber: stage,
+                                            chapterNumber: chapterNumber,
+                                            isUnlocked: dataService.isStageUnlocked(stage),
+                                            isNew: stage == dataService.highestUnlockedStage,
+                                            result: dataService.getResult(for: stage),
+                                            action: {
+                                                self.showingDetailForStage = stage
+                                                if showTutorial && tutorialStep == 1 {
+                                                    tutorialStep = 2
+                                                }
+                                            }
+                                        )
+                                        .id(stage)
+                                    }
                                 }
                             }
                             .padding(.horizontal, 80)
@@ -67,17 +89,17 @@ struct MainMenuView: View {
                     .onAppear {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             withAnimation(.spring()) {
-                                // 如果 highestUnlockedStage 在本章範圍內，會捲動到該 id
                                 proxy.scrollTo(dataService.highestUnlockedStage, anchor: .center)
                             }
                         }
                     }
                 }
-
+                
                 Spacer()
             }
             .padding(.top, 60)
-
+            
+            
             // --- 返回按鈕 ---
             VStack {
                 HStack {
@@ -100,7 +122,7 @@ struct MainMenuView: View {
                 }
                 Spacer()
             }
-
+            
             // --- 關卡細節彈窗 ---
             if let stage = showingDetailForStage {
                 StageDetailView(
@@ -108,38 +130,36 @@ struct MainMenuView: View {
                     chapterNumber: chapterNumber,
                     result: dataService.getResult(for: stage),
                     onStart: {
-                        // 1. 關閉細節框
+                        if showTutorial {
+                            tutorialStep = 3
+                        }
                         self.showingDetailForStage = nil
                         pendingStage = stage
                         showTransitionOverlay = true
                         overlayOpacity = 0.0
                         textOpacity = 0.0
-
-                        // Step 1: 黑幕漸入
+                        
                         withAnimation(.easeIn(duration: 1)) {
                             overlayOpacity = 1.0
                         }
-                        // Step 2: 文字延遲後漸入
                         withAnimation(.easeIn(duration: 0.8).delay(0.8)) {
                             textOpacity = 1.0
                         }
-
-                        // Step 3: 停留 + 進入關卡
+                        
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
                             if let stage = pendingStage {
                                 onStageSelect(stage)
                             }
-
-                            // Step 4: 黑幕 + 文字 一起漸出
                             withAnimation(.easeOut(duration: 1.0)) {
                                 overlayOpacity = 0
                                 textOpacity = 0
                             }
-
-                            // Step 5: 收尾 (動畫結束後馬上移除)
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                                 showTransitionOverlay = false
                                 pendingStage = nil
+                                if showTutorial && tutorialStep == 3 {
+                                    showTutorial = false
+                                }
                             }
                         }
                     },
@@ -149,28 +169,214 @@ struct MainMenuView: View {
                 )
                 .transition(.scale.combined(with: .opacity))
             }
-
+            
             // --- ✨ 黑幕過場層 ---
             if showTransitionOverlay {
                 Color.black
                     .opacity(overlayOpacity)
                     .edgesIgnoringSafeArea(.all)
-
+                
                 if let stage = pendingStage {
-                    // 計算章內相對編號
-                    let relative = stage - (chapterNumber - 1) * 21
-                    let lastStage = chapterNumber * 21
-                    Text(stage == lastStage ? "-第 \(chapterNumber) 章-\n\n\n  最終關" : "-第 \(chapterNumber) 章-\n\n\n  第\(relative)關")
-                        .font(.custom("CEF Fonts CJK Mono", size: 30))
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .opacity(textOpacity) // ✨ 只淡入淡出
+                    let (chapter, stageInChapter) = GameDataService.shared.chapterAndStageInChapter(for: stage)
+                    let isBossStage = stageInChapter == GameDataService.shared.stagesInChapter(chapter)
+                    
+                    Text(isBossStage
+                         ? "-第 \(chapter) 章-\n\n\n  最終關"
+                         : "-第 \(chapter) 章-\n\n\n  第\(stageInChapter)關")
+                    .font(.custom("CEF Fonts CJK Mono", size: 30))
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .opacity(textOpacity)
+                }
+            }
+
+        
+            // --- ✨ 教學引導 Overlay ---
+            if showTutorial {
+                Color.black.opacity(dimBackground ? 0.5 : 0.0)
+                    .edgesIgnoringSafeArea(.all)
+                    .animation(.easeInOut(duration: 1.0), value: dimBackground)
+                    .allowsHitTesting(false)
+
+                VStack {
+                    Spacer()
+                    switch tutorialStep {
+                    case 0:
+                        tutorialTextBox(
+                            "🎉 歡迎來到《滿分上路》！\n一起闖關練習，向筆試滿分邁進吧！",
+                            buttonTitle: "下一步"
+                        ) {
+                            tutorialStep = 1
+                        }
+
+                    case 1:
+                        tutorialTextBox("點擊畫面上的『第 1 關』圖示,\n開始第一個挑戰吧！")
+                            .offset(y: tutorialTextAtBottom ? UIScreen.main.bounds.height/2 - 80 : 0)
+                            .animation(.easeInOut(duration: 1.0), value: tutorialTextAtBottom)
+
+                        if tutorialTextAtBottom {
+                            Image(systemName: "arrow.down")
+                                .resizable()
+                                .frame(width: 30, height: 50)
+                                .foregroundColor(.white)
+                                .offset(x:-140,
+                                        y: -290)
+                        }
+
+                    case 2:
+                        tutorialTextBox("這裡會顯示關卡紀錄，點『開始挑戰』就能進入遊戲。")
+                            .offset(y: tutorialTextAtBottom ? UIScreen.main.bounds.height/2 - 80 : 0)
+                            .animation(.easeInOut(duration: 1.0), value: tutorialTextAtBottom)
+
+                        if tutorialTextAtBottom {
+                            Image(systemName: "arrow.down")
+                                .resizable()
+                                .frame(width: 30, height: 50)
+                                .foregroundColor(.white)
+                                .offset(x:80,
+                                        y: -25)
+                        }
+
+                    default:
+                        EmptyView()
+                    }
+                    Spacer()
+                }
+                .transition(.opacity)
+                .onChange(of: tutorialStep) { newValue in
+                    if newValue == 1 || newValue == 2 {
+                        dimBackground = true
+                        tutorialTextAtBottom = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            withAnimation {
+                                dimBackground = false
+                                tutorialTextAtBottom = true
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- ✨ 祝賀畫面 Overlay ---
+            if showCongrats {
+                Color.black.opacity(0.6)
+                    .edgesIgnoringSafeArea(.all)
+
+                VStack(spacing: 20) {
+                    if dataService.highestUnlockedStage == 2 {
+                        // 🎉 第一關
+                        Text("🎉 恭喜完成第 1 關！")
+                            .font(.custom("CEF Fonts CJK Mono", size: 26))
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+
+                        Text("👏 繼續加油，挑戰更多關卡吧！")
+                            .font(.custom("CEF Fonts CJK Mono", size: 20))
+                            .foregroundColor(.yellow)
+
+                    } else {
+                        let (chapter, _) = dataService.chapterAndStageInChapter(for: dataService.highestUnlockedStage - 1)
+                        let totalChapters = dataService.chapterStageCounts.count
+
+                        if chapter == totalChapters {
+                            // 🎉 最終章特別祝賀
+                            Text("🏆 恭喜通過最終章！")
+                                .font(.custom("CEF Fonts CJK Mono", size: 26))
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+
+                            Text("🎉 你已經完成所有挑戰，太厲害了！")
+                                .font(.custom("CEF Fonts CJK Mono", size: 20))
+                                .foregroundColor(.yellow)
+
+                        } else {
+                            // 🎉 一般章節
+                            Text("🎉 恭喜完成第 \(chapter) 章！")
+                                .font(.custom("CEF Fonts CJK Mono", size: 26))
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+
+                            Text("👏 繼續加油，挑戰下一章吧！")
+                                .font(.custom("CEF Fonts CJK Mono", size: 20))
+                                .foregroundColor(.yellow)
+                        }
+                    }
+
+                    Button(action: { showCongrats = false }) {
+                        Text("繼續前進 🚀")
+                            .padding()
+                            .frame(maxWidth: 200)
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                    }
+                }
+                .padding()
+                .background(RoundedRectangle(cornerRadius: 20).fill(Color.black.opacity(0.7)))
+                .padding()
+                .transition(.scale.combined(with: .opacity))
+            }
+
+
+        }
+        .animation(.spring(), value: showingDetailForStage)
+        .onAppear {
+            if dataService.highestUnlockedStage <= 1 {
+                showTutorial = true
+            }
+
+            // ✅ 恭喜完成第 1 關（只顯示一次）
+            if dataService.highestUnlockedStage == 2 {
+                let shownFirst = UserDefaults.standard.bool(forKey: "shownFirstStageCongrats")
+                if !shownFirst {
+                    showCongrats = true
+                    UserDefaults.standard.set(true, forKey: "shownFirstStageCongrats")
+                }
+            }
+
+            // ✅ 恭喜完成某章最終關（只顯示一次）
+            let justUnlocked = dataService.highestUnlockedStage
+            let (chapter, stageInChapter) = dataService.chapterAndStageInChapter(for: justUnlocked - 1)
+
+            if stageInChapter == dataService.stagesInChapter(chapter) {
+                var shownChapters = UserDefaults.standard.array(forKey: "shownCongratsChapters") as? [Int] ?? []
+                if !shownChapters.contains(chapter) {
+                    showCongrats = true
+                    shownChapters.append(chapter)
+                    UserDefaults.standard.set(shownChapters, forKey: "shownCongratsChapters")
                 }
             }
         }
-        .animation(.spring(), value: showingDetailForStage)
+        .onChange(of: showTransitionOverlay) { newValue in
+            isOverlayActive = newValue
+        }
+        
+    }
+
+    // --- ✨ 教學文字盒子元件 ---
+    @ViewBuilder
+    private func tutorialTextBox(_ text: String, buttonTitle: String? = nil, action: (() -> Void)? = nil) -> some View {
+        VStack(spacing: 16) {
+            Text(text)
+                .font(.custom("CEF Fonts CJK Mono", size: 17))
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+                .padding()
+
+            if let buttonTitle = buttonTitle, let action = action {
+                Button(buttonTitle, action: action)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
+        }
+        .padding()
     }
 }
+
+
+
 
 
 // ✨ StageIconView
@@ -182,19 +388,26 @@ struct StageIconView: View {
     let result: StageResult?
     let action: () -> Void
 
-    // 章內相對編號 (1..21)
+    // 章內相對編號
     private var relativeStage: Int {
-        return stageNumber - (chapterNumber - 1) * 21
+        let (_, stageInChapter) = GameDataService.shared.chapterAndStageInChapter(for: stageNumber)
+        return stageInChapter
     }
 
+
     var isReviewStage: Bool {
-        let relative = relativeStage
-        return relative % 5 == 0 && relative < 21
+        let chapterSize = GameDataService.shared.stagesInChapter(chapterNumber)
+        let reviewCount = max(1, chapterSize / 6)
+        let interval = chapterSize / (reviewCount + 1)
+        let reviewStages = Set((1...reviewCount).map { $0 * interval })
+        return reviewStages.contains(relativeStage) && relativeStage < chapterSize
     }
 
     var isBossStage: Bool {
-        return relativeStage == 21
+        let chapterSize = GameDataService.shared.stagesInChapter(chapterNumber)
+        return relativeStage == chapterSize
     }
+
 
     var iconColor: Color {
         if !isUnlocked {
@@ -256,7 +469,9 @@ struct StageIconView: View {
                     }
                 }
 
-                Text(isBossStage ? "最終關" : "第 \(relativeStage) 關")
+                Text(isBossStage
+                     ? "最終關"
+                     : "第\(relativeStage)關")
                     .font(.custom("CEF Fonts CJK Mono", size: 16))
                     .fontWeight(.bold)
                     .foregroundColor(.white)
@@ -278,13 +493,22 @@ struct StageDetailView: View {
     let onStart: () -> Void
     let onCancel: () -> Void
 
-    // 章內相對編號
     private var relativeStage: Int {
-        return stageNumber - (chapterNumber - 1) * 21
+        let (_, stageInChapter) = GameDataService.shared.chapterAndStageInChapter(for: stageNumber)
+        return stageInChapter
+    }
+
+    var isReviewStage: Bool {
+        let chapterSize = GameDataService.shared.stagesInChapter(chapterNumber)
+        let reviewCount = max(1, chapterSize / 6)
+        let interval = chapterSize / (reviewCount + 1)
+        let reviewStages = Set((1...reviewCount).map { $0 * interval })
+        return reviewStages.contains(relativeStage) && relativeStage < chapterSize
     }
 
     var isBossStage: Bool {
-        return relativeStage == 21
+        let chapterSize = GameDataService.shared.stagesInChapter(chapterNumber)
+        return relativeStage == chapterSize
     }
 
     private let textColor = Color(red: 85/255, green: 65/255, blue: 50/255)
@@ -347,19 +571,21 @@ struct StageDetailView: View {
     }
 }
 
-
 // ✨ 預覽
 struct InteractiveMenuPreview: View {
     @ObservedObject private var dataService = GameDataService.shared
+    @State private var isOverlayActive = false   // 👈 新增
+    
     var body: some View {
         MainMenuView(
-            chapterNumber: 2,
+            chapterNumber: 1,
             onStageSelect: { stageNumber in
                 print("Preview: Stage \(stageNumber) was selected.")
             },
             onBack: {
                 print("Preview: Back button was tapped.")
-            }
+            },
+            isOverlayActive: $isOverlayActive    // 👈 傳入
         )
         .overlay(alignment: .bottom) {
             HStack {
@@ -383,6 +609,7 @@ struct InteractiveMenuPreview: View {
         }
     }
 }
+
 
 #Preview("預設互動模式") {
     InteractiveMenuPreview()

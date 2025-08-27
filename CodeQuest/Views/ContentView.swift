@@ -1,33 +1,27 @@
 import SwiftUI
 
 struct ContentView: View {
-    // --- 原有狀態 ---
     @State private var hasFinishedLaunch = false
     @State private var isTransitioning = false
 
     var body: some View {
         ZStack {
-            // 新增一個永久的黑色背景，防止轉場時出現白色閃爍
             Color.black.edgesIgnoringSafeArea(.all)
-            
+
             if hasFinishedLaunch {
-                // 啟動流程完成後，顯示遊戲主體
                 GameNavigationView()
             } else {
-                // App 剛打開時，顯示啟動畫面
                 SplashScreenView(onFinished: handleLaunchFinish)
             }
-            
-            // 用於轉場的黑色覆蓋層
+
             if isTransitioning {
                 Color.black.edgesIgnoringSafeArea(.all)
             }
         }
     }
-    
-    // 處理從啟動畫面到主選單的轉場 (您的版本)
+
     private func handleLaunchFinish() {
-        withAnimation(.easeIn(duration: 0.75)) { // 調整為 0.75 秒
+        withAnimation(.easeIn(duration: 0.75)) {
             isTransitioning = true
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
@@ -38,47 +32,67 @@ struct ContentView: View {
         }
     }
 }
+/// 放在 TabView 的背景，用來開/關 PageTabViewStyle 的滑動
+struct TabSwipeDisabler: UIViewRepresentable {
+    var isDisabled: Bool
 
-// ✨ [主要修改處]
-// 我們將所有與「學習中心/錯題本」相關的導航邏輯，都整合到 GameNavigationView 中
+    func makeUIView(context: Context) -> UIView { UIView() }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        // 放到下一輪 runloop，確保階層已經建立
+        DispatchQueue.main.async {
+            guard let scrollView = view.findFirstPagingScrollViewInAncestors() else { return }
+            // 只影響 TabView 的分頁滑動，不影響子視圖自己的 ScrollView
+            scrollView.isScrollEnabled = !isDisabled
+            scrollView.panGestureRecognizer.isEnabled = !isDisabled
+        }
+    }
+}
+
+private extension UIView {
+    func findFirstPagingScrollViewInAncestors() -> UIScrollView? {
+        // 往上找到 root，再由上往下找第一個 isPagingEnabled 的 UIScrollView
+        var root: UIView = self
+        while let s = root.superview { root = s }
+        return root.firstPagingScrollView()
+    }
+
+    func firstPagingScrollView() -> UIScrollView? {
+        if let sv = self as? UIScrollView, sv.isPagingEnabled { return sv }
+        for sub in subviews {
+            if let found = sub.firstPagingScrollView() { return found }
+        }
+        return nil
+    }
+}
 struct GameNavigationView: View {
-    // --- 原有狀態 ---
+    @State private var selectedTab = 0
     @State private var selectedChapter: Int? = nil
     @State private var selectedStage: Int? = nil
-    
-    // ✨ [新增] 用於控制學習中心/錯題本畫面的顯示
-    @State private var showStudyView = false
     @State private var customReviewQuestions: [QuizQuestion]? = nil
+    @State private var isOverlayActive = false
+
+    // ✅ 只有在「MainMenuView 畫面」時鎖住 TabView 的分頁滑動
+    private var shouldLockTabSwipe: Bool {
+        selectedTab == 0 &&
+        selectedChapter != nil &&          // 已進入某一章
+        selectedStage == nil &&            // 還沒進關卡
+        customReviewQuestions == nil       // 不是自訂複習
+    }
 
     var body: some View {
-        NavigationView {
-            ZStack {
+        TabView(selection: $selectedTab) {
+            Group {
                 if let questions = customReviewQuestions {
-                    // 狀態 5: 顯示由學習中心建立的特別複習關卡
                     LevelView(
                         isGameActive: Binding(
                             get: { customReviewQuestions != nil },
-                            set: { if !$0 { customReviewQuestions = nil; showStudyView = true } }
+                            set: { if !$0 { customReviewQuestions = nil; selectedTab = 1 } }
                         )
                     )
                     .environmentObject(GameViewModel(customQuestions: questions))
 
-                } else if showStudyView {
-                    // 狀態 4: 顯示學習中心畫面 (StudyView)
-                    StudyView(
-                        onStartReview: { questions in
-                            // 當 StudyView 中的按鈕被點擊時，設定自訂題目並跳轉
-                            self.customReviewQuestions = questions
-                            self.showStudyView = false // 關閉 StudyView 以顯示 LevelView
-                        },
-                        onBack: {
-                            // 返回章節選擇畫面
-                            self.showStudyView = false
-                        }
-                    )
-                
                 } else if let stage = selectedStage {
-                    // 狀態 3: 顯示遊戲畫面 (LevelView)
                     LevelView(
                         isGameActive: Binding(
                             get: { selectedStage != nil },
@@ -86,33 +100,58 @@ struct GameNavigationView: View {
                         )
                     )
                     .environmentObject(GameViewModel(stage: stage))
-                    
+
                 } else if let chapter = selectedChapter {
-                    // 狀態 2: 顯示關卡選擇畫面 (MainMenuView)
                     MainMenuView(
                         chapterNumber: chapter,
                         onStageSelect: { stageNumber in self.selectedStage = stageNumber },
-                        onBack: { self.selectedChapter = nil }
+                        onBack: { self.selectedChapter = nil },
+                        isOverlayActive: $isOverlayActive
                     )
-                    
+
                 } else {
-                    // 狀態 1: 顯示章節選擇畫面 (ChapterSelectionView)
                     ChapterSelectionView(
                         onChapterSelect: { chapterNumber in self.selectedChapter = chapterNumber },
-                        // ✨ [新增] 將「顯示學習中心」的動作傳遞下去
-                        onSelectReviewTab: { self.showStudyView = true }
+                        onSelectReviewTab: { selectedTab = 1 }
                     )
                 }
             }
-            .animation(.default, value: selectedChapter)
-            .animation(.default, value: selectedStage)
-            .animation(.default, value: showStudyView)
-            .animation(.default, value: customReviewQuestions != nil)
+            .tag(0)
+
+            StudyView(
+                onStartReview: { questions in
+                    self.customReviewQuestions = questions
+                    self.selectedTab = 0
+                },
+                onBack: { selectedTab = 0 }
+            )
+            .tag(1)
         }
-        .navigationViewStyle(.stack)
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        // 👇 只有在 MainMenuView 時才關掉 TabView 的「分頁滑動」
+        .background(TabSwipeDisabler(isDisabled: shouldLockTabSwipe))
+        .ignoresSafeArea()
+        .safeAreaInset(edge: .bottom) {
+            if selectedStage == nil && customReviewQuestions == nil && !isOverlayActive {
+                HStack {
+                    BottomTabButton(iconName: "icon-1", title: "學習", tag: 0, isSelected: selectedTab == 0) {
+                        withAnimation { selectedTab = 0 }
+                    }
+                    BottomTabButton(iconName: "icon-2", title: "複習", tag: 1, isSelected: selectedTab == 1) {
+                        withAnimation { selectedTab = 1 }
+                    }
+                    BottomTabButton(iconName: "icon-3", title: "個人", tag: 2, isSelected: false, isEnabled: false) { }
+                }
+                .padding(.horizontal, 45)
+                .frame(maxWidth: .infinity)
+                .frame(height: 70)
+                .background(Color.black.opacity(0.3))
+                .offset(y: 25)
+            }
+        }
     }
-    
 }
+
 
 #Preview {
     ContentView()

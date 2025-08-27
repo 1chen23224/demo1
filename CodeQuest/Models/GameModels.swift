@@ -31,5 +31,5 @@ struct QuizQuestion: Identifiable {
     let type: Int
     
     /// 額外資訊，代表題目所屬的不同 stage
-    let stages: [Int]
+    let stage: Int
 }

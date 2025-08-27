@@ -9,25 +9,27 @@ struct LevelView: View {
     @State private var wrongAttempts: [String] = []
     @State private var isImagePopupVisible = false
     @State private var autoClosePopupTask: DispatchWorkItem?
-
+    
+    // --- Tutorial 狀態 ---
+    @State private var tutorialStep: Int? = nil   // nil 表示沒有進行教學
+    @State private var showTutorialTip = false
+    
+    // --- 答對/答錯動畫狀態 ---
+    @State private var feedbackColor: Color? = nil
+    @State private var showFeedbackOverlay = false
+    
     private var currentProgress: Double {
         if viewModel.totalQuestions == 0 { return 0 }
         return Double(viewModel.correctlyAnsweredCount) / Double(viewModel.totalQuestions)
     }
-
-    // 計算當前章號
-    private var currentChapter: Int {
-        ((viewModel.currentStage - 1) / 21) + 1
-    }
     
+    // 計算當前章號
+    private var currentChapter: Int { ((viewModel.currentStage - 1) / 21) + 1 }
     // 根據章號決定角色圖
-    private var characterImageName: String {
-        return currentChapter >= 2 ? "character2" : "progress-character"
-    }
-
+    private var characterImageName: String { currentChapter >= 2 ? "character2" : "progress-character" }
+    
     var body: some View {
         ZStack {
-            
             // --- 主要遊戲畫面 ---
             VStack(spacing: 0) {
                 ZStack(alignment: .bottom) {
@@ -36,44 +38,63 @@ struct LevelView: View {
                         scrollTrigger: viewModel.score,
                         imageName: backgroundName
                     )
-                    .offset(y:165)
+                    .offset(y: 165)
                 }
-                .frame(height: UIScreen.main.bounds.height * 0.5).clipped()
+                .frame(height: UIScreen.main.bounds.height * 0.5)
+                .clipped()
                 
                 ZStack {
-                    Image("ground-texture").resizable().scaledToFill().clipped()
+                    Image("ground-texture")
+                        .resizable()
+                        .scaledToFill()
+                        .clipped()
+                    
                     VStack(spacing: 15) {
                         Spacer()
                         ForEach(viewModel.currentQuestion.options.filter { !$0.isEmpty }, id: \.self) { option in
-                            OptionButton(optionText: option, selectedOption: $selectedOption, isSubmitted: $isAnswerSubmitted, correctAnswer: viewModel.currentQuestion.correctAnswer)
-                                .modifier(ShakeEffect(attempts: wrongAttempts.filter { $0 == option }.count))
-                                .onTapGesture { self.handleTap(on: option) }
+                            OptionButton(
+                                optionText: option,
+                                selectedOption: $selectedOption,
+                                isSubmitted: $isAnswerSubmitted,
+                                correctAnswer: viewModel.currentQuestion.correctAnswer
+                            )
+                            .modifier(ShakeEffect(attempts: wrongAttempts.filter { $0 == option }.count))
+                            .onTapGesture { self.handleTap(on: option) }
                         }
                         Spacer()
                     }
                     .padding(.horizontal)
+                    
                     VStack {
-                        ProgressBar(progress: currentProgress, characterImageName: characterImageName).offset(y: -25)
+                        ProgressBar(
+                            progress: currentProgress,
+                            characterImageName: characterImageName,
+                            currentQuestion: min(viewModel.correctlyAnsweredCount + 1, max(1, viewModel.totalQuestions)),
+                            totalQuestions: viewModel.totalQuestions
+                        )
+                        .offset(y: -25)
                         Spacer()
                     }
                 }
                 .frame(height: UIScreen.main.bounds.height * 0.5)
             }
             .edgesIgnoringSafeArea(.all)
-
-    
-        
-            VStack {
-                if let imageName = viewModel.currentQuestion.imageName {
-                    Button(action: { withAnimation(.spring()) { isImagePopupVisible = true } }) {
-                        QuestionBar(text: viewModel.currentQuestion.questionText, hasImage: true)
-                    }
-                } else {
-                    QuestionBar(text: viewModel.currentQuestion.questionText, hasImage: false)
-                }
-                Spacer()
-            }.padding(.top, 30).padding(.horizontal)
             
+            // --- 題目列（左文字 / 右圖示按鈕） ---
+            VStack {
+                QuestionBar(
+                    text: viewModel.currentQuestion.questionText,
+                    hasImage: viewModel.currentQuestion.imageName != nil,
+                    shouldAnimateIcon: false,
+                    showHandHint: false,
+                    onImageTap: { openImageFromIcon() }
+                )
+                .padding(.top, 30)
+                .padding(.horizontal)
+                Spacer()
+            }
+            
+            // --- 自動圖片彈窗 ---
             if isImagePopupVisible, let imageName = viewModel.currentQuestion.imageName {
                 ImagePopupView(imageName: imageName, isVisible: $isImagePopupVisible)
                     .transition(.scale.combined(with: .opacity))
@@ -84,9 +105,7 @@ struct LevelView: View {
                 HStack(alignment: .top) {
                     // 左上角
                     HStack(spacing: 16) {
-                        Button(action: {
-                            self.isGameActive = false
-                        }) {
+                        Button(action: { self.isGameActive = false }) {
                             Image(systemName: "house.fill")
                                 .font(.title)
                                 .foregroundColor(.white.opacity(0.8))
@@ -94,26 +113,36 @@ struct LevelView: View {
                                 .background(Circle().fill(Color.black.opacity(0.5)))
                                 .shadow(radius: 5)
                         }
-                        
-                        HintView(keyword: viewModel.currentQuestion.keyword, isHintVisible: viewModel.isHintVisible, action: { viewModel.showHint() })
+                        HintView(
+                            keyword: viewModel.currentQuestion.keyword,
+                            isHintVisible: viewModel.isHintVisible,
+                            action: { viewModel.showHint() }
+                        )
                     }
-                    
                     Spacer()
-                    
                     // 右上角
                     VStack(alignment: .trailing, spacing: 8) {
                         HeartView(lives: viewModel.lives)
+                        
+                        // 👉 題數顯示放在心心下方
+                        Text("第 \(min(viewModel.correctlyAnsweredCount + 1, max(1, viewModel.totalQuestions)))/\(viewModel.totalQuestions) 題")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.black.opacity(0.6))
+                            .cornerRadius(8)
+                        
                         ComboView(combo: viewModel.comboCount)
                             .animation(.spring(response: 0.4, dampingFraction: 0.5), value: viewModel.comboCount)
                     }
                 }
                 .padding(.horizontal)
                 .padding(.top, 50)
-                
                 Spacer()
             }
             
-            // 結算畫面
+            // --- 結算畫面 ---
             if viewModel.isQuizComplete || viewModel.isGameOver {
                 ResultView(
                     stageNumber: viewModel.currentStage,
@@ -121,25 +150,39 @@ struct LevelView: View {
                     maxCombo: viewModel.maxComboAchieved,
                     correctlyAnswered: viewModel.correctlyAnsweredCount,
                     totalQuestions: viewModel.totalQuestions,
-                    backToMenuAction: {
-                        self.isGameActive = false
-                    }
+                    backToMenuAction: { self.isGameActive = false }
                 )
                 .transition(.opacity.animation(.easeIn(duration: 0.5)))
             }
+            
+            // --- 答對/答錯色調 Overlay ---
+            if showFeedbackOverlay, let color = feedbackColor {
+                color.opacity(0.35)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .zIndex(99)
+            }
+            
+            // --- Tutorial Overlay ---
+            if let step = tutorialStep {
+                TutorialOverlay(step: step) {
+                    nextTutorialStep()
+                }
+            }
         }
         .edgesIgnoringSafeArea(.all)
-        .onChange(of: viewModel.questionRefreshID) {
-            handleNewQuestion()
-        }
+        .onChange(of: viewModel.questionRefreshID) { handleNewQuestion() }
         .onAppear {
             handleNewQuestion()
+            // 玩家第一次遊玩 → 啟動教學
+            if GameDataService.shared.highestUnlockedStage == 1 {
+                tutorialStep = 1
+            }
         }
+        .gesture(DragGesture(), including: .all)
     }
     
-    private var backgroundName: String {
-        return viewModel.backgroundImageName
-    }
+    private var backgroundName: String { viewModel.backgroundImageName }
     
     private func handleTap(on option: String) {
         guard !isAnswerSubmitted else { return }
@@ -147,29 +190,125 @@ struct LevelView: View {
         selectedOption = option
         if option != viewModel.currentQuestion.correctAnswer {
             wrongAttempts.append(option)
+            triggerFeedback(.red)
+        } else {
+            triggerFeedback(.green)
         }
         autoClosePopupTask?.cancel()
         viewModel.submitAnswer(option)
+        
+        // 教學流程：首次答題後顯示提示
+        if tutorialStep == 4 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                tutorialStep = 5
+            }
+        }
+    }
+    
+    // 🎨 觸發答對/答錯顏色特效
+    private func triggerFeedback(_ color: Color) {
+        feedbackColor = color
+        withAnimation(.easeIn(duration: 0.2)) {
+            showFeedbackOverlay = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            withAnimation(.easeOut(duration: 0.4)) {
+                showFeedbackOverlay = false
+            }
+        }
+    }
+    
+    private func openImageFromIcon() {
+        if let _ = viewModel.currentQuestion.imageName {
+            withAnimation(.spring()) { isImagePopupVisible = true }
+        }
     }
     
     private func handleNewQuestion() {
         isAnswerSubmitted = false
         selectedOption = nil
         autoClosePopupTask?.cancel()
-        if viewModel.currentQuestion.imageName != nil {
-            let task = DispatchWorkItem {
-                if isImagePopupVisible {
-                    withAnimation(.spring()) {
-                        isImagePopupVisible = false
-                    }
-                }
-            }
-            autoClosePopupTask = task
+        
+        // 🚀 如果題目有圖片，自動彈窗並在 2.5 秒後關閉
+        if let _ = viewModel.currentQuestion.imageName {
             withAnimation(.spring()) {
                 isImagePopupVisible = true
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: task)
+            
+            let task = DispatchWorkItem {
+                withAnimation {
+                    isImagePopupVisible = false
+                }
+            }
+            autoClosePopupTask = task
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: task)
         }
+    }
+    
+    private func nextTutorialStep() {
+        if let step = tutorialStep {
+            if step < 5{
+                tutorialStep = step + 1
+            } else {
+                tutorialStep = nil
+                
+            }
+        }
+    }
+}
+
+// --- Tutorial Overlay 元件 ---
+struct TutorialOverlay: View {
+    let step: Int
+    let onNext: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.5).ignoresSafeArea()
+
+            VStack {
+                switch step {
+                case 1:
+                    Text("這是你的生命值 ❤️ 和提示 💡\n答錯會扣心，提示能幫助你！")
+                        .font(.title2).foregroundColor(.white)
+                        .padding()
+                        .background(Color.blue.opacity(0.8))
+                        .cornerRadius(12)
+                        .position(x: UIScreen.main.bounds.width - 150, y: 100) // 右上角
+                case 2:
+                    Text("這裡是題目，按下可顯示圖片，\n請仔細觀察 🖼️")
+                        .font(.title2).foregroundColor(.white)
+                        .padding()
+                        .background(Color.green.opacity(0.8))
+                        .cornerRadius(12)
+                        .position(x: UIScreen.main.bounds.width - 180, y: 100) // 右上角
+                case 3:
+                    Text("從這裡選擇正確答案 ✅\n點擊後會立即知道對錯")
+                        .font(.title2).foregroundColor(.white)
+                        .padding()
+                        .background(Color.orange.opacity(0.8))
+                        .cornerRadius(12)
+                        .position(x: UIScreen.main.bounds.width - 280, y: 550) // 右上角
+                case 4:
+                    Text("這裡顯示本關總題數和目前進度\n🚗車子要往終點前進")
+                        .font(.title2).foregroundColor(.white)
+                        .padding()
+                        .background(Color.purple.opacity(0.8))
+                        .cornerRadius(12)
+                case 5:
+                    
+                    Text("答對了會獲得分數和連擊獎勵 🎉\n答錯會扣生命！")
+                        .font(.title2).foregroundColor(.white)
+                        .padding()
+                        .background(Color.red.opacity(0.8))
+                        .cornerRadius(12)
+                default:
+                    EmptyView()
+                }
+            }
+            .padding()
+        }
+        .onTapGesture { onNext() }
     }
 }
 
@@ -184,9 +323,18 @@ struct ResultView: View {
     let backToMenuAction: () -> Void
 
     var isBossStage: Bool {
-        return stageNumber % 21 == 0
+        let (chapter, stageInChapter) = GameDataService.shared.chapterAndStageInChapter(for: stageNumber)
+        return stageInChapter == GameDataService.shared.stagesInChapter(chapter)
     }
-
+    var stageText: String {
+        let (chapter, stageInChapter) = GameDataService.shared.chapterAndStageInChapter(for: stageNumber)
+        if isBossStage {
+            return "第 \(chapter) 章最終關"
+        } else {
+            return "第 \(chapter) 章第 \(stageInChapter) 關"
+        }
+    }
+    
     private let textColor = Color(red: 85/255, green: 65/255, blue: 50/255)
 
     var body: some View {
@@ -200,28 +348,21 @@ struct ResultView: View {
                 
                 ZStack {
                     
-                    Text(isBossStage ? "第 \((stageNumber - 1) / 21 + 1) 章最終關" : "第 \((stageNumber - 1) / 21 + 1) 章第 \(stageNumber) 關")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(textColor)
-                        .offset(x: 65, y: -24)
                     
                     evaluationText()
                         .font(.system(size: 50, weight: .heavy, design: .rounded))
-                        .offset(x: 85, y: 36)
-                    
-                    comboText()
-                        .foregroundColor(textColor)
-                        .offset(x: 85, y: 94)
+                        .offset(x: 05, y: -3)
                     
                     Text("\(correctlyAnswered) / \(totalQuestions)")
                         .font(.system(size: 36, weight: .heavy, design: .rounded))
                         .foregroundColor(textColor)
-                        .offset(x: 85, y: 151)
+                        .font(.custom("CEF Fonts CJK Mono", size: 26))
+                        .offset(x: 05, y: 60)
                     
                     Color.clear
-                        .frame(width: 160, height: 50)
+                        .frame(width: 120, height: 50)
                         .contentShape(Rectangle())
-                        .offset(y: 225)
+                        .offset(y: 160)
                         .onTapGesture {
                             backToMenuAction()
                         }
@@ -236,7 +377,7 @@ struct ResultView: View {
     @ViewBuilder
     private func comboText() -> some View {
         if evaluation == "S" {
-            Text("FULL COMBO")
+            Text("全部連對")
                 .font(.system(size: 28, weight: .heavy, design: .rounded))
         } else {
             Text("\(maxCombo)")
@@ -250,10 +391,13 @@ struct ResultView: View {
         switch evaluation {
         case "S":
             text.foregroundStyle(LinearGradient(colors: [.red, .orange, .yellow, .green, .blue, .purple], startPoint: .leading, endPoint: .trailing))
+                .font(.custom("CEF Fonts CJK Mono", size: 46))
         case "A":
             text.foregroundColor(.red)
+                .font(.custom("CEF Fonts CJK Mono", size: 46))
         default:
             text.foregroundColor(textColor)
+            .font(.custom("CEF Fonts CJK Mono", size: 46))
         }
     }
 }
@@ -313,58 +457,296 @@ struct ComboView: View {
         if combo >= 2 {
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text("\(combo)").font(.system(size: 50, weight: .heavy, design: .rounded)).background(ZStack { Text("\(combo)").font(.system(size: 50, weight: .heavy, design: .rounded)).offset(x: 2, y: 2).foregroundColor(.black.opacity(0.6)); Text("\(combo)").font(.system(size: 50, weight: .heavy, design: .rounded)).offset(x: -2, y: -2).foregroundColor(.black.opacity(0.6)) }).foregroundStyle(LinearGradient(gradient: Gradient(colors: [.white, .white, .orange]), startPoint: .top, endPoint: .bottom)).shadow(color: .black.opacity(0.5), radius: 3, x: 4, y: 4)
-                Text("COMBO").font(.system(size: 20, weight: .bold, design: .rounded)).foregroundColor(.white).shadow(color: .black.opacity(0.7), radius: 2).padding(.leading, 4).offset(y: -5)
+                    .allowsHitTesting(false)
+                Text("連對").font(.system(size: 20, weight: .bold, design: .rounded)).foregroundColor(.white).shadow(color: .black.opacity(0.7), radius: 2).padding(.leading, 4).offset(y: -5)
+                    .allowsHitTesting(false)
             }.transition(.asymmetric(insertion: .scale(scale: 0.5, anchor: .topTrailing).combined(with: .opacity), removal: .scale(scale: 0.5, anchor: .topTrailing).combined(with: .opacity).animation(.easeOut(duration: 0.3))))
+                .offset(x: 20) // 👈 向右移 40pt
         }
     }
 }
-
 struct ImagePopupView: View {
     let imageName: String
     @Binding var isVisible: Bool
+    
+    // 縮放 & 拖曳狀態
+    @State private var scale: CGFloat = 1.0
+    @State private var lastScale: CGFloat = 1.0
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+    
+    // 最大最小縮放
+    private let minScale: CGFloat = 1.0
+    private let maxScale: CGFloat = 4.0
+    
     var body: some View {
         ZStack {
-            Color.black.opacity(0.6).edgesIgnoringSafeArea(.all).onTapGesture { withAnimation(.spring()) { isVisible = false } }
-            Image(imageName)
-                .resizable()
-                // ✨ [主要修改處] 新增以下兩個修飾符
-                .interpolation(.high) // 1. 使用高品質的圖片縮放插值
-                .antialiased(true)    // 2. 開啟抗鋸齒效果
-                .scaledToFit()
-                .frame(width: UIScreen.main.bounds.width * 0.8) // 稍微放大一點點，看得更清楚
-                .padding()
-                .background(Color.white)
-                .cornerRadius(20)
-                .shadow(color: .black.opacity(0.5), radius: 20)
-                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.yellow, lineWidth: 5))
+            // --- 點擊黑色背景關閉 ---
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation {
+                        isVisible = false
+                    }
+                }
+            
+            VStack {
+                Spacer()
+                
+                GeometryReader { geo in
+                    Image(imageName)
+                        .resizable()
+                        .interpolation(.high)
+                        .antialiased(true)
+                        .scaledToFit()
+                        .frame(maxWidth: 300, maxHeight: 300)
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(16)
+                        .shadow(radius: 10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.yellow, lineWidth: 4)
+                        )
+                        .padding(.horizontal, 20)
+                        .padding(.top, 120)
+                        
+                        // 縮放 & 拖曳
+                        .scaleEffect(scale)
+                        .offset(offset)
+                        .gesture(
+                            SimultaneousGesture(
+                                // 捏合縮放
+                                MagnificationGesture()
+                                    .onChanged { value in
+                                        let delta = value / lastScale
+                                        scale *= delta
+                                        scale = min(max(scale, minScale), maxScale) // 限制範圍
+                                        lastScale = value
+                                    }
+                                    .onEnded { _ in
+                                        lastScale = 1.0
+                                        if scale <= minScale {
+                                            withAnimation {
+                                                scale = minScale
+                                                offset = .zero
+                                                lastOffset = .zero
+                                            }
+                                        }
+                                    },
+                                
+                                // 拖曳平移 + 慣性滑動
+                                DragGesture()
+                                    .onChanged { value in
+                                        offset = CGSize(
+                                            width: lastOffset.width + value.translation.width,
+                                            height: lastOffset.height + value.translation.height
+                                        )
+                                    }
+                                    .onEnded { value in
+                                        // 慣性滑動
+                                        let velocity = value.predictedEndTranslation
+                                        let predicted = CGSize(
+                                            width: lastOffset.width + velocity.width,
+                                            height: lastOffset.height + velocity.height
+                                        )
+                                        
+                                        withAnimation(.easeOut(duration: 0.5)) {
+                                            offset = predicted
+                                        }
+                                        
+                                        // 限制邊界 + 回彈
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                                offset = boundedOffset(for: offset, in: geo.size)
+                                                lastOffset = offset
+                                            }
+                                        }
+                                    }
+                            )
+                        )
+                        // 雙擊放大縮小
+                        .onTapGesture(count: 2) {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                                if scale > 1.0 {
+                                    scale = 1.0
+                                    offset = .zero
+                                    lastOffset = .zero
+                                } else {
+                                    scale = 2.0
+                                }
+                            }
+                        }
+                }
+                
+                Spacer()
+                
+                // --- 關閉按鈕 ---
+                Button(action: {
+                    withAnimation {
+                        isVisible = false
+                    }
+                }) {
+                    Text("關閉")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding()
+                        .frame(width: 120)
+                        .background(Color.blue)
+                        .cornerRadius(12)
+                }
+                .padding(.bottom, 40)
+            }
         }
+    }
+    
+    // 限制圖片偏移範圍，避免拖太遠
+    private func boundedOffset(for offset: CGSize, in size: CGSize) -> CGSize {
+        let maxX = (scale - 1) * size.width / 2
+        let maxY = (scale - 1) * size.height / 2
+        return CGSize(
+            width: min(max(offset.width, -maxX), maxX),
+            height: min(max(offset.height, -maxY), maxY)
+        )
     }
 }
 
 struct QuestionBar: View {
     let text: String
     let hasImage: Bool
+    let shouldAnimateIcon: Bool
+    let showHandHint: Bool
+    let onImageTap: () -> Void
+    
+    @State private var pressPulse = false
+    @State private var breath = false
+    @State private var showImageHint = false
+    
     var body: some View {
-        HStack {
-            Text(text).font(.custom("CEF Fonts CJK Mono", size: 24)).fixedSize(horizontal: false, vertical: true)
-            if hasImage {
-                Image(systemName: "photo.on.rectangle.angled").font(.system(size: 24, weight: .bold))
+        VStack(spacing: 8) {
+            // --- 題目區塊 ---
+            HStack(alignment: .center, spacing: 12) {
+                
+                // 題目文字 (自動換行 + 捲動)
+                ScrollView(.vertical, showsIndicators: false) {
+                    Text(text)
+                        .font(.custom("CEF Fonts CJK Mono", size: 22))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.vertical, 4)
+                }
+                .frame(maxHeight: 120)
+                .padding(.leading, 8)
+                
+                // 圖片按鈕
+                if hasImage {
+                    ZStack(alignment: .topTrailing) {
+                        Button(action: {
+                            withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) { pressPulse = true }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) { pressPulse = false }
+                            }
+                            onImageTap()
+                            
+                            // 顯示提示文字 5 秒
+                            showImageHint = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                                withAnimation { showImageHint = false }
+                            }
+                        }) {
+                            VStack(spacing: 2) {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(10)
+                                    .background(Circle().fill(Color.black.opacity(0.35)))
+                                    .shadow(color: .black.opacity(0.35), radius: 4, y: 3)
+                                    .scaleEffect(pressPulse ? 1.1 : (shouldAnimateIcon || breath ? 1.08 : 1.0))
+                                Text("查看圖片")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.white.opacity(0.9))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .onAppear {
+                            if shouldAnimateIcon {
+                                withAnimation(.easeInOut(duration: 0.8).repeatCount(2, autoreverses: true)) {
+                                    breath = true
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                    withAnimation(.easeOut(duration: 0.2)) { breath = false }
+                                }
+                            }
+                        }
+                        
+                        if showHandHint {
+                            Text("👆")
+                                .font(.system(size: 20))
+                                .offset(x: 6, y: -18)
+                                .transition(.opacity.combined(with: .scale))
+                        }
+                    }
+                }
+            }
+            .padding()
+            .background(Color.black.opacity(0.85))
+            .cornerRadius(20)
+            .shadow(radius: 5)
+            .frame(maxHeight: UIScreen.main.bounds.height * 0.3)
+            
+            // --- 圖片提示文字 ---
+            if showImageHint {
+                Text("可隨時點 🖼️ 圖示重看圖片")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.yellow)
+                    .padding(.top, -100)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
-        .foregroundColor(.white).frame(maxWidth: .infinity).padding().background(Color.black.opacity(0.85)).cornerRadius(20).shadow(radius: 5).frame(maxHeight: UIScreen.main.bounds.height * 0.3)
+        .animation(.easeInOut, value: showImageHint)
     }
 }
+
+// ------------------ ProgressBar（不再顯示題數） ------------------
 
 struct ProgressBar: View {
     let progress: Double
     let characterImageName: String
+    let currentQuestion: Int
+    let totalQuestions: Int
+    
     private let barWidth: CGFloat = 380
     private let barHeight: CGFloat = 12
     private let characterSize: CGFloat = 70
+    
+    private var gradient: LinearGradient {
+        let colors: [Color]
+        switch progress {
+        case 0..<0.34:
+            colors = [.red, .orange]
+        case 0.34..<0.67:
+            colors = [.orange, .yellow]
+        default:
+            colors = [.yellow, .green]
+        }
+        return LinearGradient(gradient: Gradient(colors: colors),
+                              startPoint: .leading,
+                              endPoint: .trailing)
+    }
+    
     var body: some View {
         ZStack(alignment: .leading) {
-            Capsule().fill(Color.black.opacity(0.5)).frame(width: barWidth, height: barHeight)
-            Capsule().fill(Color.yellow).frame(width: barWidth * progress, height: barHeight)
+            Capsule()
+                .fill(Color.black.opacity(0.5))
+                .frame(width: barWidth, height: barHeight)
+            
+            Capsule()
+                .fill(gradient)
+                .frame(width: barWidth * progress, height: barHeight)
+                .animation(.easeInOut(duration: 0.5), value: progress)
+            
             Image(characterImageName)
                 .resizable()
                 .scaledToFit()

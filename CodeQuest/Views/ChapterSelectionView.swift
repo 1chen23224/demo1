@@ -36,8 +36,40 @@ struct AlphaShape: Shape {
     }
 }
 
-// MARK: - 單一章節 Mask（外觀用原本 Image + mask，點擊用 AlphaShape）
-// ✨ [主要修改處]
+// MARK: - 模擬按下效果
+struct AlwaysPressedStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(0.6) // 👈 永遠模擬 pressed 狀態
+    }
+}
+
+// MARK: - 教學引導（小手指 + 提示文字）
+struct HandGuideView: View {
+    @State private var animate = false
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "hand.point.up.left.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 50, height: 50)
+                .foregroundColor(.white)
+                .offset(x: animate ? -5 : 5, y: animate ? -5 : 5)
+                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: animate)
+                .onAppear { animate = true }
+                .allowsHitTesting(false)
+
+            Text("點擊這裡開始")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.yellow)
+                .shadow(color: .black.opacity(0.7), radius: 3, x: 1, y: 1)
+            .allowsHitTesting(false)
+        }
+    }
+}
+
+// MARK: - 單一章節 Mask
 struct ChapterMaskView: View {
     @ObservedObject private var dataService = GameDataService.shared
     let chapterNumber: Int
@@ -64,31 +96,19 @@ struct ChapterMaskView: View {
                             } else if isNew {
                                 Color.yellow.opacity(isPulsing ? 0.8 : 0.2).blur(radius: 15)
                                 Color.white.opacity(isPulsing ? 0.7 : 0.1).blur(radius: 5)
+                            } else {
+                                Color.black.opacity(0.001)
                             }
                         }
                         .mask(Image("selecting-\(chapterNumber)").resizable().scaledToFit())
                     )
-                    .overlay {
-                        // ✨ [新增] 如果是最新關卡，顯示「按我」提示
-                        if isNew && chapterNumber == 1{
-                            Text("點擊開始")
-                                .font(.custom("CEF Fonts CJK Mono", size: 30))
-                                .bold()
-                                .foregroundColor(.white)
-                                .shadow(color: .black.opacity(0.7), radius: 5)
-                                .opacity(isPulsing ? 1.0 : 0.8)
-                                .padding(.top, -50)
-                                .padding(.horizontal, 80)
-                        }
-                    }
-                    .overlay {
-                        if showDebugBorder {
-                            AlphaShape(cgImage: cgImage).stroke(Color.red, lineWidth: 1).opacity(0.6)
-                        }
-                    }
             }
             .disabled(!isUnlocked)
             .contentShape(AlphaShape(cgImage: cgImage))
+            .buttonStyle(
+                (isUnlocked && !isNew) ? AlwaysPressedStyle() : .init()
+            )
+            
             .onChange(of: isNew, initial: true) { _, newValue in
                 if newValue {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -103,29 +123,40 @@ struct ChapterMaskView: View {
         }
     }
 }
-// MARK: - 主畫面（章節地圖 + 章節點擊區 + 底部三顆功能按鈕）
+
+// MARK: - 主畫面（章節地圖 + 功能按鈕 + 引導）
 struct ChapterSelectionView: View {
     @ObservedObject private var dataService = GameDataService.shared
     let onChapterSelect: (Int) -> Void
-    // ✨ [新增] 新增一個閉包，用於通知 ContentView 要跳轉到複習頁面
     let onSelectReviewTab: () -> Void
-    // 底部按鈕選擇狀態
+    
     @State private var selectedTabIndex: Int = 0
-    // Debug：是否顯示紅框
+    @State private var showGuide: Bool = false
     var showDebugBorder: Bool = false
-
+    
     var body: some View {
         ZStack {
             // --- 地圖層 ---
             ZStack {
-                Image("selecting")
-                    .resizable()
-                    .scaledToFill()
+                GeometryReader { geo in
+                    ZStack {
+                        Color.black.ignoresSafeArea()
+                        Image("selecting")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .clipped()
+                            .ignoresSafeArea()
+                    }
+                }
 
-                // --- 章節圖層（外觀維持原本 mask；點擊用 AlphaShape）---
                 ZStack {
-                    ChapterMaskView(chapterNumber: 1, onChapterSelect: onChapterSelect, showDebugBorder: showDebugBorder)
-                        .frame(width: 320, height: 215).offset(x: 25, y: -175)
+                    ChapterMaskView(chapterNumber: 1, onChapterSelect: { chapter in
+                        onChapterSelect(chapter)
+                        dismissGuideIfNeeded()
+                    }, showDebugBorder: showDebugBorder)
+                    .frame(width: 320, height: 215).offset(x: 25, y: -175)
+                    
                     ChapterMaskView(chapterNumber: 2, onChapterSelect: onChapterSelect, showDebugBorder: showDebugBorder)
                         .frame(width: 170, height: 160).offset(x: -30, y: -115)
                     ChapterMaskView(chapterNumber: 3, onChapterSelect: onChapterSelect, showDebugBorder: showDebugBorder)
@@ -136,9 +167,11 @@ struct ChapterSelectionView: View {
                         .frame(width: 500, height: 385).offset(x: -10, y: 95)
                 }
             }
-            .offset(x: -30)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 25) // 想要的「左移」效果
+            
             .ignoresSafeArea()
-
+            
             // --- 標題 ---
             VStack {
                 Text("𝑴 𝑨 𝑷")
@@ -146,47 +179,38 @@ struct ChapterSelectionView: View {
                     .foregroundColor(.black)
                 Spacer()
             }
-            .padding(.top, 0)
 
-            // --- ✨ 底部按鈕列（學習 / 複習 / 個人）---
-            VStack {
-                Spacer()
-                HStack {
-                    BottomTabButton(
-                        iconName: "icon-1", title: "學習", tag: 0,
-                        isSelected: selectedTabIndex == 0,
-                        action: { selectedTabIndex = 0 }
-                    )
-                    BottomTabButton(
-                        iconName: "icon-2", title: "複習", tag: 1,
-                        isSelected: selectedTabIndex == 1,
-                        action: { onSelectReviewTab()}
-                    )
-                    BottomTabButton(
-                        iconName: "icon-3", title: "個人", tag: 2,
-                        isSelected: selectedTabIndex == 2,
-                        action: { selectedTabIndex = 2 }
-                    )
-                }
-                .padding(.horizontal, 45)
-                .padding(.top, 0)           // 👈 上方留一點距離
-                .padding(.bottom, -15)       // 👈 把按鈕往下壓
-                .frame(maxWidth: .infinity)
-                .frame(height: 30) // 固定高度
-                .background(Color.black.opacity(0.3))
+            
+            // --- 首次教學引導 ---
+            if showGuide {
+                HandGuideView()
+                    .offset(x: 100, y: -200) // 指向第一章
+                    .transition(.opacity)
             }
-            .ignoresSafeArea(.keyboard, edges: .bottom) // 避免鍵盤擋住
+        }
+        .onAppear {
+            // ✅ 判斷條件：最高解鎖章節 == 1，表示玩家沒打過任何關
+            if dataService.highestUnlockedChapter == 1 {
+                showGuide = true
+            }
         }
         .navigationBarHidden(true)
     }
+    
+    private func dismissGuideIfNeeded() {
+        if showGuide {
+            withAnimation { showGuide = false }
+        }
+    }
 }
 
-// MARK: - 底部按鈕組件
+// MARK: - 底部按鈕
 struct BottomTabButton: View {
     let iconName: String
     let title: String
     let tag: Int
     let isSelected: Bool
+    var isEnabled: Bool = true   // 👈 新增，預設可用
     let action: () -> Void
 
     var body: some View {
@@ -195,13 +219,15 @@ struct BottomTabButton: View {
                 Image(iconName)
                     .resizable()
                     .renderingMode(.template)
-                    .foregroundColor(isSelected ? .yellow : .white)
+                    .foregroundColor(isEnabled ? (isSelected ? .yellow : .white) : .gray)
                     .frame(width: 28, height: 28)
                 Text(title)
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(isSelected ? .yellow : .white)
+                    .foregroundColor(isEnabled ? (isSelected ? .yellow : .white) : .gray)
             }
             .padding(.horizontal, 20)
         }
+        .disabled(!isEnabled) // 👈 不可點擊
     }
 }
+
