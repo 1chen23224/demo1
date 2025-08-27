@@ -37,19 +37,18 @@ struct AlphaShape: Shape {
 }
 
 // MARK: - 單一章節 Mask（外觀用原本 Image + mask，點擊用 AlphaShape）
+// ✨ [主要修改處]
 struct ChapterMaskView: View {
     @ObservedObject private var dataService = GameDataService.shared
-
     let chapterNumber: Int
     let onChapterSelect: (Int) -> Void
-    var showDebugBorder: Bool = false   // 顯示紅框邊界（偵錯用）
-
+    var showDebugBorder: Bool = false
     @State private var isPulsing = false
 
     var body: some View {
         let isUnlocked = dataService.isChapterUnlocked(chapterNumber)
         let isNew = chapterNumber == dataService.highestUnlockedChapter
-
+        
         if let uiImage = UIImage(named: "selecting-\(chapterNumber)"),
            let cgImage = uiImage.cgImage {
 
@@ -57,32 +56,38 @@ struct ChapterMaskView: View {
                 onChapterSelect(chapterNumber)
             } label: {
                 Image("selecting-\(chapterNumber)")
-                    .resizable()
-                    .scaledToFit()
+                    .resizable().scaledToFit()
                     .overlay(
                         ZStack {
                             if !isUnlocked {
                                 Color.black.opacity(0.785)
                             } else if isNew {
-                                Color.yellow.opacity(isPulsing ? 0.7 : 0.3)
-                                    .blur(radius: 15)
-                                Color.white.opacity(isPulsing ? 0.7 : 0.1)
-                                    .blur(radius: 5)
+                                Color.yellow.opacity(isPulsing ? 0.8 : 0.2).blur(radius: 15)
+                                Color.white.opacity(isPulsing ? 0.7 : 0.1).blur(radius: 5)
                             }
                         }
                         .mask(Image("selecting-\(chapterNumber)").resizable().scaledToFit())
                     )
-                    // Debug：顯示實際點擊邊界
+                    .overlay {
+                        // ✨ [新增] 如果是最新關卡，顯示「按我」提示
+                        if isNew && chapterNumber == 1{
+                            Text("點擊開始")
+                                .font(.custom("CEF Fonts CJK Mono", size: 30))
+                                .bold()
+                                .foregroundColor(.white)
+                                .shadow(color: .black.opacity(0.7), radius: 5)
+                                .opacity(isPulsing ? 1.0 : 0.8)
+                                .padding(.top, -50)
+                                .padding(.horizontal, 80)
+                        }
+                    }
                     .overlay {
                         if showDebugBorder {
-                            AlphaShape(cgImage: cgImage) // yOffset 預設 -0.1
-                                .stroke(Color.red, lineWidth: 1)
-                                .opacity(0.6)
+                            AlphaShape(cgImage: cgImage).stroke(Color.red, lineWidth: 1).opacity(0.6)
                         }
                     }
             }
             .disabled(!isUnlocked)
-            // 實際點擊範圍：依圖片 alpha（避免透明處誤觸）
             .contentShape(AlphaShape(cgImage: cgImage))
             .onChange(of: isNew, initial: true) { _, newValue in
                 if newValue {
@@ -98,7 +103,6 @@ struct ChapterMaskView: View {
         }
     }
 }
-
 // MARK: - 主畫面（章節地圖 + 章節點擊區 + 底部三顆功能按鈕）
 struct ChapterSelectionView: View {
     @ObservedObject private var dataService = GameDataService.shared

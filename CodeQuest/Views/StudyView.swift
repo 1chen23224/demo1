@@ -1,10 +1,3 @@
-//
-//  StudyView.swift
-//  CodeQuest
-//
-//  Created by coco leong on 27/08/2025.
-//
-
 import SwiftUI
 
 // MARK: - 主視圖 (包含：錯題重溫 + 總複習)
@@ -111,8 +104,7 @@ struct StudyView: View {
         }
     }
 }
-
-// MARK: - 錯題重溫視圖
+// MARK: - 錯題重溫視圖 (已修正)
 struct WrongQuestionsReviewView: View {
     @ObservedObject private var dataService = GameDataService.shared
     let allQuestions: [QuizQuestion]
@@ -120,15 +112,23 @@ struct WrongQuestionsReviewView: View {
     
     @State private var chapterPercentages: [Int: Double] = [1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0, 5: 1.0]
     
+    // 計算總共要複習的題目數量
+    private var totalQuestionsToReview: Int {
+        var total = 0
+        for (chapter, percentage) in chapterPercentages {
+            let wrongQuestions = getWrongQuestions(for: chapter)
+            total += Int(Double(wrongQuestions.count) * percentage)
+        }
+        return total
+    }
+
     var body: some View {
         VStack(spacing: 15) {
-            Text("錯題重溫")
-                .font(.custom("CEF Fonts CJK Mono", size: 32))
-                .bold()
-                .foregroundColor(.white)
+            Text("錯題重溫").font(.custom("CEF Fonts CJK Mono", size: 32)).bold().foregroundColor(.white)
             
             ForEach(1...5, id: \.self) { chapter in
                 let wrongQuestionsInChapter = getWrongQuestions(for: chapter)
+                // ✨ [修正] 現在 isChapterUnlocked 應該由 dataService 判斷
                 if dataService.isChapterUnlocked(chapter) && !wrongQuestionsInChapter.isEmpty {
                     ReviewChapterRow(
                         title: "第 \(chapter) 章",
@@ -140,10 +140,7 @@ struct WrongQuestionsReviewView: View {
                     )
                 }
             }
-            
             Spacer()
-            
-            // 建立關卡按鈕
             Button("建立錯題重溫關卡") {
                 var reviewQuestions: [QuizQuestion] = []
                 for (chapter, percentage) in chapterPercentages {
@@ -151,29 +148,26 @@ struct WrongQuestionsReviewView: View {
                     let countToTake = Int(Double(wrongQuestions.count) * percentage)
                     reviewQuestions.append(contentsOf: wrongQuestions.shuffled().prefix(countToTake))
                 }
-                if !reviewQuestions.isEmpty {
-                    onStartReview(reviewQuestions.shuffled())
-                }
+                if !reviewQuestions.isEmpty { onStartReview(reviewQuestions.shuffled()) }
             }
             .buttonStyle(.borderedProminent)
             .font(.custom("CEF Fonts CJK Mono", size: 20))
             .padding()
+            .disabled(totalQuestionsToReview == 0) // 如果總數為 0，禁用按鈕
         }
         .padding()
     }
     
+    // ✨ [主要修改處] 改用 question.level 來判斷章節
     private func getWrongQuestions(for chapter: Int) -> [QuizQuestion] {
-        let chapterSize = 21
-        let startStage = (chapter - 1) * chapterSize + 1
-        let endStage = chapter * chapterSize
         return allQuestions.filter { question in
             dataService.wrongQuestionIDs.contains(question.questionID) &&
-            question.stages.contains { $0 >= startStage && $0 <= endStage }
+            question.level == chapter // <-- 使用 level 來判斷章節
         }
     }
 }
 
-// MARK: - 總複習視圖
+// MARK: - 總複習視圖 (已修正)
 struct AllQuestionsReviewView: View {
     @ObservedObject private var dataService = GameDataService.shared
     let allQuestions: [QuizQuestion]
@@ -181,16 +175,25 @@ struct AllQuestionsReviewView: View {
     
     @State private var chapterPercentages: [Int: Double] = [1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2, 5: 0.2]
 
+    // 計算總共要複習的題目數量
+    private var totalQuestionsToReview: Int {
+        var total = 0
+        for (chapter, percentage) in chapterPercentages {
+            if dataService.isChapterUnlocked(chapter) {
+                let questions = getQuestions(for: chapter)
+                total += Int(Double(questions.count) * percentage)
+            }
+        }
+        return total
+    }
+
     var body: some View {
         VStack(spacing: 15) {
-            Text("總複習")
-                .font(.custom("CEF Fonts CJK Mono", size: 32))
-                .bold()
-                .foregroundColor(.white)
+            Text("總複習").font(.custom("CEF Fonts CJK Mono", size: 32)).bold().foregroundColor(.white)
             
             ForEach(1...5, id: \.self) { chapter in
                 let questionsInChapter = getQuestions(for: chapter)
-                if dataService.isChapterUnlocked(chapter) {
+                if dataService.isChapterUnlocked(chapter) && !questionsInChapter.isEmpty {
                     ReviewChapterRow(
                         title: "第 \(chapter) 章",
                         totalCount: questionsInChapter.count,
@@ -201,9 +204,7 @@ struct AllQuestionsReviewView: View {
                     )
                 }
             }
-            
             Spacer()
-            
             Button("建立總複習關卡") {
                 var reviewQuestions: [QuizQuestion] = []
                 for (chapter, percentage) in chapterPercentages {
@@ -213,24 +214,19 @@ struct AllQuestionsReviewView: View {
                         reviewQuestions.append(contentsOf: questions.shuffled().prefix(countToTake))
                     }
                 }
-                if !reviewQuestions.isEmpty {
-                    onStartReview(reviewQuestions.shuffled())
-                }
+                if !reviewQuestions.isEmpty { onStartReview(reviewQuestions.shuffled()) }
             }
             .buttonStyle(.borderedProminent)
             .font(.custom("CEF Fonts CJK Mono", size: 20))
             .padding()
+            .disabled(totalQuestionsToReview == 0) // 如果總數為 0，禁用按鈕
         }
         .padding()
     }
     
+    // ✨ [主要修改處] 改用 question.level 來判斷章節
     private func getQuestions(for chapter: Int) -> [QuizQuestion] {
-        let chapterSize = 21
-        let startStage = (chapter - 1) * chapterSize + 1
-        let endStage = chapter * chapterSize
-        return allQuestions.filter { q in
-            q.stages.contains { $0 >= startStage && $0 <= endStage }
-        }
+        return allQuestions.filter { $0.level == chapter }
     }
 }
 

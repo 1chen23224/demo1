@@ -290,6 +290,7 @@ struct HintView: View {
         }
         .animation(.spring(), value: isHintVisible)
     }
+
 }
 
 struct HeartView: View {
@@ -349,7 +350,8 @@ struct QuestionBar: View {
             if hasImage {
                 Image(systemName: "photo.on.rectangle.angled").font(.system(size: 24, weight: .bold))
             }
-        }.foregroundColor(.white).frame(maxWidth: .infinity).padding().background(Color.black.opacity(0.6)).cornerRadius(20).shadow(radius: 5).frame(maxHeight: UIScreen.main.bounds.height * 0.3)
+        }
+        .foregroundColor(.white).frame(maxWidth: .infinity).padding().background(Color.black.opacity(0.85)).cornerRadius(20).shadow(radius: 5).frame(maxHeight: UIScreen.main.bounds.height * 0.3)
     }
 }
 

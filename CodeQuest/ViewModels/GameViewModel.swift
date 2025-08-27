@@ -9,6 +9,7 @@ class GameViewModel: ObservableObject {
     @Published var quizQuestions: [QuizQuestion] = []
     @Published var questionRefreshID = UUID()
     
+    
     var availableStages: Set<Int> {
         Set(allQuestions.flatMap { $0.stages })
     }
@@ -126,8 +127,7 @@ class GameViewModel: ObservableObject {
             
             if stageInChapter > 0 && stageInChapter % 5 == 0 {
                 // 🔵 複習關（5,10,15,20）：從本章所有題目抽樣
-                let reviewPool = allQuestions.filter { $0.level == chapterNumber }
-                self.quizQuestions = Array(reviewPool.shuffled().prefix(15))
+                self.quizQuestions = Array(questionsForThisStage.shuffled().prefix(15))
                 print("Starting REVIEW stage \(stageInChapter) of Chapter \(chapterNumber) with \(self.quizQuestions.count) random Level \(chapterNumber) questions.")
             } else {
                 // ⚪ 一般關（章內 1~4,6~9,11~14,16~19）

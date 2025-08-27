@@ -34,7 +34,7 @@ struct SplashScreenView: View {
                 
                 VStack {
                     Spacer()
-                    Text("Touch to Start")
+                    Text("點擊任意位置繼續")
                         .font(.custom("CEF Fonts CJK Mono", size: 22))
                         .foregroundColor(.white)
                         .shadow(radius: 5)
