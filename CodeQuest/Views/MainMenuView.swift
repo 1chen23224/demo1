@@ -4,20 +4,19 @@ struct MainMenuView: View {
     @ObservedObject private var dataService = GameDataService.shared
     @State private var showingDetailForStage: Int? = nil
     
-    // --- ✨ 新增: 過場動畫狀態 ---
+    // --- ✨ 過場動畫狀態 ---
     @State private var showTransitionOverlay = false
     @State private var overlayOpacity: Double = 1.0
-    @State private var textOpacity: Double = 0.0   // 文字的透明度
+    @State private var textOpacity: Double = 0.0   // 文字透明度
     @State private var pendingStage: Int? = nil
-    @State private var navigateToLevel = false
     
-    // MainMenuView 現在需要知道它是為哪個章節顯示的
+    // MainMenuView 需要知道它是第幾章
     let chapterNumber: Int
     
     let onStageSelect: (Int) -> Void
     let onBack: () -> Void
     
-    // 計算這個章節包含哪些關卡 (假設每章 21 關)
+    // 計算章節內的關卡範圍 (每章 21 關)
     private var stagesForThisChapter: Range<Int> {
         let chapterSize = 21
         let startStage = (chapterNumber - 1) * chapterSize + 1
@@ -33,7 +32,7 @@ struct MainMenuView: View {
                 .edgesIgnoringSafeArea(.all)
 
             VStack(spacing: 50) {
-                Text("第 \(chapterNumber) 章") // 標題顯示當前章節
+                Text("第 \(chapterNumber) 章")
                     .font(.custom("CEF Fonts CJK Mono", size: 40))
                     .foregroundColor(.white)
                     .shadow(color: .black.opacity(0.3), radius: 5, y: 5)
@@ -106,7 +105,7 @@ struct MainMenuView: View {
                     stageNumber: stage,
                     result: dataService.getResult(for: stage),
                     onStart: {
-                        // ✨ 修改: 先觸發黑屏過場，而不是直接進關卡
+                        // 1. 關閉細節框
                         self.showingDetailForStage = nil
                         pendingStage = stage
                         showTransitionOverlay = true
@@ -129,12 +128,13 @@ struct MainMenuView: View {
                             }
                             
                             // Step 4: 黑幕 + 文字 一起漸出
-                            withAnimation(.easeOut(duration: 5.0)) {
+                            withAnimation(.easeOut(duration: 1.0)) {
                                 overlayOpacity = 0
+                                textOpacity = 0
                             }
                             
-                            // Step 5: 收尾
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                            // Step 5: 收尾 (動畫結束後馬上移除)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                                 showTransitionOverlay = false
                                 pendingStage = nil
                             }
@@ -147,7 +147,7 @@ struct MainMenuView: View {
                 .transition(.scale.combined(with: .opacity))
             }
             
-            // --- ✨ 新增: 黑幕過場層 ---
+            // --- ✨ 黑幕過場層 ---
             if showTransitionOverlay {
                 Color.black
                     .opacity(overlayOpacity)
@@ -158,8 +158,7 @@ struct MainMenuView: View {
                         .font(.custom("CEF Fonts CJK Mono", size: 30))
                         .fontWeight(.bold)
                         .foregroundColor(.white)
-                        .opacity(textOpacity) // ✨ 漸入漸出
-                        .scaleEffect(0.9 + 0.1 * textOpacity) // ✨ 淡入時順便縮放
+                        .opacity(textOpacity) // ✨ 只淡入淡出
                 }
             }
         }
@@ -169,7 +168,7 @@ struct MainMenuView: View {
 
 
 
-// ✨ [主要修改處]
+// ✨ StageIconView
 struct StageIconView: View {
     let stageNumber: Int
     let isUnlocked: Bool
@@ -189,7 +188,7 @@ struct StageIconView: View {
         if !isUnlocked {
             return Color.gray.opacity(0.6)
         } else if isBossStage {
-            return Color.red // 魔王關使用血紅色
+            return Color.red
         } else if isReviewStage {
             return Color(red: 70/255, green: 175/255, blue: 255/255)
         } else {
@@ -258,6 +257,9 @@ struct StageIconView: View {
     }
 }
 
+
+
+// ✨ StageDetailView
 struct StageDetailView: View {
     let stageNumber: Int
     let result: StageResult?
@@ -313,7 +315,6 @@ struct StageDetailView: View {
                             .font(.custom("CEF Fonts CJK Mono", size: 16))
                             .bold().padding().frame(maxWidth: .infinity)
                             .background(Color.blue).cornerRadius(10)
-                        
                     }
                 }
                 .foregroundColor(.white)
@@ -329,11 +330,11 @@ struct StageDetailView: View {
     }
 }
 
+
+
+// ✨ 預覽
 struct InteractiveMenuPreview: View {
     @ObservedObject private var dataService = GameDataService.shared
-    @State private var isGameActive = false
-    @State private var isTransitioning = false
-    @State private var selectedStage: Int? = nil
     var body: some View {
         MainMenuView(
             chapterNumber: 1,

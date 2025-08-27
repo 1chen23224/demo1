@@ -130,9 +130,8 @@ struct LevelView: View {
     }
     // ✨ [新增] 計算背景圖檔名的輔助屬性
     private var backgroundName: String {
-        let stageNumber = viewModel.currentStage
-        let imageIndex = (stageNumber - 1) % 5 + 1
-        return "level1-\(imageIndex)"
+
+        return viewModel.backgroundImageName
     }
     
     private func handleTap(on option: String) {
