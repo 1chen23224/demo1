@@ -17,7 +17,7 @@ struct StudyView: View {
             GeometryReader { geo in
                 ZStack {
                     Color.black.ignoresSafeArea()
-                    Image("stage-background")
+                    Image("stage-background6")
                         .resizable()
                         .scaledToFill()
                         .frame(width: geo.size.width, height: geo.size.height + 100)

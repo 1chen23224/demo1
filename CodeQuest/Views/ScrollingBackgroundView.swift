@@ -3,6 +3,7 @@ import SwiftUI
 struct ScrollingBackgroundView: View {
     let scrollTrigger: Int
     let imageName: String
+
     
     @State private var scrollPosition: CGFloat = 0
 
@@ -14,22 +15,28 @@ struct ScrollingBackgroundView: View {
             ZStack {
                 Image(imageName)
                     .resizable()
-                    .scaledToFit()
-                    .frame(width: imageWidth)
+                    .scaledToFill() // 保持填充寬度
+                    .frame(minHeight: 20) // ✨ 新增：設定最小高度
                     .offset(x: self.scrollPosition - imageWidth)
+                    .ignoresSafeArea()
 
                 Image(imageName)
                     .resizable()
-                    .scaledToFit()
-                    .frame(width: imageWidth)
+                    .scaledToFill() // 保持填充寬度
+                    .frame(minHeight: 20) // ✨ 新增：設定最小高度
                     .offset(x: self.scrollPosition)
+                    .ignoresSafeArea()
 
                 Image(imageName)
                     .resizable()
-                    .scaledToFit()
-                    .frame(width: imageWidth)
+                    .scaledToFill() // 保持填充寬度
+                    .frame(minHeight: 20) // ✨ 新增：設定最小高度
                     .offset(x: self.scrollPosition + imageWidth)
+                    .ignoresSafeArea()
             }
+            .frame(maxHeight: 267) // ✨ 新增：ZStack 也需要設定最小高度
+            .clipped() // 確保超出部分被裁切
+            .ignoresSafeArea()
             .onChange(of: scrollTrigger) { _, _ in
                 guard scrollTrigger > 0 else { return }
 
@@ -56,10 +63,9 @@ struct ScrollingBackgroundView: View {
             ZStack {
                 Color.blue
                 
-                // ✨ [修正] 在 Preview 中提供一個範例圖片檔名
                 ScrollingBackgroundView(
                     scrollTrigger: score,
-                    imageName: "level1-1"
+                    imageName: "level1-1",
                 )
                 
                 VStack {

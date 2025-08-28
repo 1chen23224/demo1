@@ -71,13 +71,15 @@ struct GameNavigationView: View {
     @State private var selectedStage: Int? = nil
     @State private var customReviewQuestions: [QuizQuestion]? = nil
     @State private var isOverlayActive = false
+    
+    // 控制 Alert
+    @State private var showPersonalAlert = false
 
-    // ✅ 只有在「MainMenuView 畫面」時鎖住 TabView 的分頁滑動
     private var shouldLockTabSwipe: Bool {
         selectedTab == 0 &&
-        selectedChapter != nil &&          // 已進入某一章
-        selectedStage == nil &&            // 還沒進關卡
-        customReviewQuestions == nil       // 不是自訂複習
+        selectedChapter != nil &&
+        selectedStage == nil &&
+        customReviewQuestions == nil
     }
 
     var body: some View {
@@ -128,7 +130,6 @@ struct GameNavigationView: View {
             .tag(1)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        // 👇 只有在 MainMenuView 時才關掉 TabView 的「分頁滑動」
         .background(TabSwipeDisabler(isDisabled: shouldLockTabSwipe))
         .ignoresSafeArea()
         .safeAreaInset(edge: .bottom) {
@@ -140,7 +141,10 @@ struct GameNavigationView: View {
                     BottomTabButton(iconName: "icon-2", title: "複習", tag: 1, isSelected: selectedTab == 1) {
                         withAnimation { selectedTab = 1 }
                     }
-                    BottomTabButton(iconName: "icon-3", title: "個人", tag: 2, isSelected: false, isEnabled: false) { }
+                    // ✅ 改成可點擊，顯示 Alert
+                    BottomTabButton(iconName: "icon-3", title: "聯絡", tag: 2, isSelected: false, isEnabled: true) {
+                        showPersonalAlert = true
+                    }
                 }
                 .padding(.horizontal, 45)
                 .frame(maxWidth: .infinity)
@@ -148,6 +152,24 @@ struct GameNavigationView: View {
                 .background(Color.black.opacity(0.3))
                 .offset(y: 25)
             }
+        }
+        // ✅ Alert：打開 IG or Safari
+        .alert("隨時聯絡我們", isPresented: $showPersonalAlert) {
+            Button("打開 IG") {
+                openInstagram(username: "wi.lson_0911")
+            }
+            Button("取消", role: .cancel) { }
+        } message: {
+            Text("我們的 IG：@wi.lson_0911")
+        }
+    }
+    
+    private func openInstagram(username: String) {
+        if let appURL = URL(string: "instagram://user?username=\(username)"),
+           UIApplication.shared.canOpenURL(appURL) {
+            UIApplication.shared.open(appURL, options: [:], completionHandler: nil)
+        } else if let webURL = URL(string: "https://instagram.com/\(username)") {
+            UIApplication.shared.open(webURL, options: [:], completionHandler: nil)
         }
     }
 }

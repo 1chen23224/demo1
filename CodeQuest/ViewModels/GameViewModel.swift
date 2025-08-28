@@ -98,10 +98,10 @@ class GameViewModel: ObservableObject {
     var backgroundImageName: String {
         if currentStage == -1 { return "level1-1" }
         guard currentStage > 0 else { return "level1-1" }
-        let chapterSize = 21
-        let chapterNumber = ((currentStage - 1) / chapterSize) + 1
-        let stageInChapter = ((currentStage - 1) % chapterSize) + 1
+        
+        let (chapterNumber, stageInChapter) = dataService.chapterAndStageInChapter(for: currentStage)
         let mapIndex = ((stageInChapter - 1) % 5) + 1
+        
         return "level\(chapterNumber)-\(mapIndex)"
     }
     

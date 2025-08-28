@@ -82,7 +82,7 @@ class GameDataService: ObservableObject {
             let correctAnswer = cols[8]
             let keyword = cols[10]
 
-            let options = [optionA, optionB, optionC, optionD].shuffled()
+            let options = [optionA, optionB, optionC, optionD]
 
             return QuizQuestion(
                 questionID: Int(cols[0]) ?? 0,

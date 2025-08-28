@@ -3,31 +3,44 @@ import SwiftUI
 struct LevelView: View {
     @Binding var isGameActive: Bool
     @EnvironmentObject var viewModel: GameViewModel
-    
+
     @State private var selectedOption: String?
     @State private var isAnswerSubmitted = false
     @State private var wrongAttempts: [String] = []
     @State private var isImagePopupVisible = false
     @State private var autoClosePopupTask: DispatchWorkItem?
-    
+    @State private var comboDisplayVisible = false
+    // ... LevelView 的其他狀態變數
+    @State private var autoCloseComboTask: DispatchWorkItem?
     // --- Tutorial 狀態 ---
-    @State private var tutorialStep: Int? = nil   // nil 表示沒有進行教學
+    @State private var tutorialStep: Int? = nil    // nil 表示沒有進行教學
     @State private var showTutorialTip = false
-    
+
     // --- 答對/答錯動畫狀態 ---
     @State private var feedbackColor: Color? = nil
     @State private var showFeedbackOverlay = false
-    
+
     private var currentProgress: Double {
         if viewModel.totalQuestions == 0 { return 0 }
         return Double(viewModel.correctlyAnsweredCount) / Double(viewModel.totalQuestions)
     }
+
+    /// 計算當前章節編號
+    private var chapterx: Int {
+        // 假設 GameDataService.shared.chapterAndStageInChapter(for:)
+        // 是一個方法，會回傳一個元組 (章節編號, 章節內關卡編號)
+        // 我們只取回傳元組中的第一個值，也就是章節編號
+        GameDataService.shared.chapterAndStageInChapter(for: viewModel.currentStage).0
+    }
+
+    /// 根據章節編號決定要顯示的角色圖片名稱
+    private var characterImageName: String {
+        // 取得當前章節編號，並取其與 5 之間的最小值
+        // 這樣可以確保角色圖片名稱不會超過 "character5"
+        "character\(min(chapterx, 5))"
+    }
     
-    // 計算當前章號
-    private var currentChapter: Int { ((viewModel.currentStage - 1) / 21) + 1 }
-    // 根據章號決定角色圖
-    private var characterImageName: String { currentChapter >= 2 ? "character2" : "progress-character" }
-    
+
     var body: some View {
         ZStack {
             // --- 主要遊戲畫面 ---
@@ -42,13 +55,13 @@ struct LevelView: View {
                 }
                 .frame(height: UIScreen.main.bounds.height * 0.5)
                 .clipped()
-                
+
                 ZStack {
                     Image("ground-texture")
                         .resizable()
                         .scaledToFill()
                         .clipped()
-                    
+
                     VStack(spacing: 15) {
                         Spacer()
                         ForEach(viewModel.currentQuestion.options.filter { !$0.isEmpty }, id: \.self) { option in
@@ -64,7 +77,8 @@ struct LevelView: View {
                         Spacer()
                     }
                     .padding(.horizontal)
-                    
+                    .offset(y: -10)
+
                     VStack {
                         ProgressBar(
                             progress: currentProgress,
@@ -72,14 +86,14 @@ struct LevelView: View {
                             currentQuestion: min(viewModel.correctlyAnsweredCount + 1, max(1, viewModel.totalQuestions)),
                             totalQuestions: viewModel.totalQuestions
                         )
-                        .offset(y: -25)
+                        .offset(y: -30)
                         Spacer()
                     }
                 }
                 .frame(height: UIScreen.main.bounds.height * 0.5)
             }
             .edgesIgnoringSafeArea(.all)
-            
+
             // --- 題目列（左文字 / 右圖示按鈕） ---
             VStack {
                 QuestionBar(
@@ -89,17 +103,17 @@ struct LevelView: View {
                     showHandHint: false,
                     onImageTap: { openImageFromIcon() }
                 )
-                .padding(.top, 30)
+                .padding(.top, 40)
                 .padding(.horizontal)
                 Spacer()
             }
-            
+
             // --- 自動圖片彈窗 ---
             if isImagePopupVisible, let imageName = viewModel.currentQuestion.imageName {
                 ImagePopupView(imageName: imageName, isVisible: $isImagePopupVisible)
                     .transition(.scale.combined(with: .opacity))
             }
-            
+
             // --- 頂部UI ---
             VStack {
                 HStack(alignment: .top) {
@@ -121,9 +135,9 @@ struct LevelView: View {
                     }
                     Spacer()
                     // 右上角
-                    VStack(alignment: .trailing, spacing: 8) {
+                    VStack(alignment: .trailing, spacing: 5) {
                         HeartView(lives: viewModel.lives)
-                        
+
                         // 👉 題數顯示放在心心下方
                         Text("第 \(min(viewModel.correctlyAnsweredCount + 1, max(1, viewModel.totalQuestions)))/\(viewModel.totalQuestions) 題")
                             .font(.system(size: 16, weight: .bold))
@@ -132,16 +146,20 @@ struct LevelView: View {
                             .padding(.vertical, 4)
                             .background(Color.black.opacity(0.6))
                             .cornerRadius(8)
-                        
-                        ComboView(combo: viewModel.comboCount)
-                            .animation(.spring(response: 0.4, dampingFraction: 0.5), value: viewModel.comboCount)
+
+                        // ... 在右上角 VStack 中
+                        if comboDisplayVisible {
+                            ComboView(combo: viewModel.comboCount)
+                                .animation(.spring(response: 0.4, dampingFraction: 0.5), value: viewModel.comboCount)
+                                .transition(.opacity) // 讓它淡入淡出
+                        }
                     }
                 }
-                .padding(.horizontal)
-                .padding(.top, 50)
+                .padding(.horizontal, 10)
+                .padding(.top, 34)
                 Spacer()
             }
-            
+
             // --- 結算畫面 ---
             if viewModel.isQuizComplete || viewModel.isGameOver {
                 ResultView(
@@ -154,7 +172,7 @@ struct LevelView: View {
                 )
                 .transition(.opacity.animation(.easeIn(duration: 0.5)))
             }
-            
+
             // --- 答對/答錯色調 Overlay ---
             if showFeedbackOverlay, let color = feedbackColor {
                 color.opacity(0.35)
@@ -162,7 +180,7 @@ struct LevelView: View {
                     .transition(.opacity)
                     .zIndex(99)
             }
-            
+
             // --- Tutorial Overlay ---
             if let step = tutorialStep {
                 TutorialOverlay(step: step) {
@@ -172,6 +190,27 @@ struct LevelView: View {
         }
         .edgesIgnoringSafeArea(.all)
         .onChange(of: viewModel.questionRefreshID) { handleNewQuestion() }
+        .onChange(of: viewModel.comboCount) { newComboCount in
+            // 如果連對數大於 1，才顯示連對
+            if newComboCount > 1 {
+                // 先取消舊的計時器，避免衝突
+                self.autoCloseComboTask?.cancel()
+
+                // 顯示連對
+                withAnimation(.easeIn) {
+                    self.comboDisplayVisible = true
+                }
+
+                // 設定新的計時器，3 秒後隱藏
+                let task = DispatchWorkItem {
+                    withAnimation(.easeOut) {
+                        self.comboDisplayVisible = false
+                    }
+                }
+                self.autoCloseComboTask = task
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: task)
+            }
+        }
         .onAppear {
             handleNewQuestion()
             // 玩家第一次遊玩 → 啟動教學
@@ -181,9 +220,9 @@ struct LevelView: View {
         }
         .gesture(DragGesture(), including: .all)
     }
-    
+
     private var backgroundName: String { viewModel.backgroundImageName }
-    
+
     private func handleTap(on option: String) {
         guard !isAnswerSubmitted else { return }
         isAnswerSubmitted = true
@@ -196,7 +235,7 @@ struct LevelView: View {
         }
         autoClosePopupTask?.cancel()
         viewModel.submitAnswer(option)
-        
+
         // 教學流程：首次答題後顯示提示
         if tutorialStep == 4 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -204,7 +243,7 @@ struct LevelView: View {
             }
         }
     }
-    
+
     // 🎨 觸發答對/答錯顏色特效
     private func triggerFeedback(_ color: Color) {
         feedbackColor = color
@@ -217,24 +256,24 @@ struct LevelView: View {
             }
         }
     }
-    
+
     private func openImageFromIcon() {
         if let _ = viewModel.currentQuestion.imageName {
             withAnimation(.spring()) { isImagePopupVisible = true }
         }
     }
-    
+
     private func handleNewQuestion() {
         isAnswerSubmitted = false
         selectedOption = nil
         autoClosePopupTask?.cancel()
-        
+
         // 🚀 如果題目有圖片，自動彈窗並在 2.5 秒後關閉
         if let _ = viewModel.currentQuestion.imageName {
             withAnimation(.spring()) {
                 isImagePopupVisible = true
             }
-            
+
             let task = DispatchWorkItem {
                 withAnimation {
                     isImagePopupVisible = false
@@ -244,14 +283,14 @@ struct LevelView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: task)
         }
     }
-    
+
     private func nextTutorialStep() {
         if let step = tutorialStep {
             if step < 5{
                 tutorialStep = step + 1
             } else {
                 tutorialStep = nil
-                
+
             }
         }
     }
@@ -288,7 +327,7 @@ struct TutorialOverlay: View {
                         .padding()
                         .background(Color.orange.opacity(0.8))
                         .cornerRadius(12)
-                        .position(x: UIScreen.main.bounds.width - 280, y: 550) // 右上角
+                        .position(x: UIScreen.main.bounds.width - 250, y: 550) // 右上角
                 case 4:
                     Text("這裡顯示本關總題數和目前進度\n🚗車子要往終點前進")
                         .font(.title2).foregroundColor(.white)
@@ -345,24 +384,27 @@ struct ResultView: View {
                 Image("End")
                     .resizable()
                     .scaledToFill()
+                    .scaleEffect(0.5) // 比例縮小 80%
+                    .frame(width: 400, height: 800) // 也可以限制一個範圍
+                
                 
                 ZStack {
                     
                     
                     evaluationText()
-                        .font(.system(size: 50, weight: .heavy, design: .rounded))
-                        .offset(x: 05, y: -3)
+                        .font(.system(size: 60, weight: .heavy, design: .rounded))
+                        .offset(x: 3, y: -3)
                     
                     Text("\(correctlyAnswered) / \(totalQuestions)")
-                        .font(.system(size: 36, weight: .heavy, design: .rounded))
+                        .font(.system(size: 27, weight: .heavy, design: .rounded))
                         .foregroundColor(textColor)
                         .font(.custom("CEF Fonts CJK Mono", size: 26))
-                        .offset(x: 05, y: 60)
+                        .offset(x: 3, y: 40)
                     
                     Color.clear
-                        .frame(width: 120, height: 50)
+                        .frame(width: 90, height: 50)
                         .contentShape(Rectangle())
-                        .offset(y: 160)
+                        .offset(y: 120)
                         .onTapGesture {
                             backToMenuAction()
                         }
@@ -390,7 +432,7 @@ struct ResultView: View {
         let text = Text(evaluation)
         switch evaluation {
         case "S":
-            text.foregroundStyle(LinearGradient(colors: [.red, .orange, .yellow, .green, .blue, .purple], startPoint: .leading, endPoint: .trailing))
+            text.foregroundColor(.yellow)
                 .font(.custom("CEF Fonts CJK Mono", size: 46))
         case "A":
             text.foregroundColor(.red)
@@ -403,12 +445,11 @@ struct ResultView: View {
 }
 
 
-
 struct HintView: View {
     let keyword: String?
     let isHintVisible: Bool
     let action: () -> Void
-    
+
     var body: some View {
         HStack {
             Button(action: action) {
@@ -420,7 +461,7 @@ struct HintView: View {
                     .shadow(radius: 5)
             }
             .disabled(keyword == nil || isHintVisible)
-            
+
             if isHintVisible, let kw = keyword {
                 Text(kw)
                     .font(.custom("CEF Fonts CJK Mono", size: 26))
@@ -434,7 +475,6 @@ struct HintView: View {
         }
         .animation(.spring(), value: isHintVisible)
     }
-
 }
 
 struct HeartView: View {
@@ -461,7 +501,7 @@ struct ComboView: View {
                 Text("連對").font(.system(size: 20, weight: .bold, design: .rounded)).foregroundColor(.white).shadow(color: .black.opacity(0.7), radius: 2).padding(.leading, 4).offset(y: -5)
                     .allowsHitTesting(false)
             }.transition(.asymmetric(insertion: .scale(scale: 0.5, anchor: .topTrailing).combined(with: .opacity), removal: .scale(scale: 0.5, anchor: .topTrailing).combined(with: .opacity).animation(.easeOut(duration: 0.3))))
-                .offset(x: 20) // 👈 向右移 40pt
+                .offset(x: 14) // 👈 向右移 40pt
         }
     }
 }
@@ -508,7 +548,7 @@ struct ImagePopupView: View {
                             RoundedRectangle(cornerRadius: 16)
                                 .stroke(Color.yellow, lineWidth: 4)
                         )
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 35)
                         .padding(.top, 120)
                         
                         // 縮放 & 拖曳
@@ -581,21 +621,6 @@ struct ImagePopupView: View {
                 
                 Spacer()
                 
-                // --- 關閉按鈕 ---
-                Button(action: {
-                    withAnimation {
-                        isVisible = false
-                    }
-                }) {
-                    Text("關閉")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding()
-                        .frame(width: 120)
-                        .background(Color.blue)
-                        .cornerRadius(12)
-                }
-                .padding(.bottom, 40)
             }
         }
     }
@@ -765,7 +790,7 @@ struct OptionButton: View {
     @Binding var isSubmitted: Bool
     let correctAnswer: String
     var body: some View {
-        Image("option-button-bg").resizable().scaledToFit().frame(height: 93).cornerRadius(15).overlay(
+        Image("option-button-bg").resizable().scaledToFit().frame(height: 90).cornerRadius(15).overlay(
             Text(optionText).font(.custom("CEF Fonts CJK Mono", size: 26)).fontWeight(.heavy).foregroundColor(Color(red: 60/255, green: 40/255, blue: 40/255)).multilineTextAlignment(.center).minimumScaleFactor(0.5).padding(.vertical, 15).padding(.horizontal, 30)
         ).opacity(buttonOpacity).shadow(color: buttonColor.opacity(0.8), radius: 10).scaleEffect(isSubmitted && optionText == selectedOption ? 1.05 : 1.0).animation(.spring(response: 0.4, dampingFraction: 0.5), value: selectedOption)
     }

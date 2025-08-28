@@ -42,7 +42,7 @@ struct MainMenuView: View {
     var body: some View {
         ZStack {
             // --- 背景 ---
-            Image("stage-background")
+            Image("stage-background\(chapterNumber)")
                 .resizable()
                 .scaledToFill()
                 .edgesIgnoringSafeArea(.all)
@@ -210,7 +210,7 @@ struct MainMenuView: View {
                         }
 
                     case 1:
-                        tutorialTextBox("點擊畫面上的『第 1 關』圖示,\n開始第一個挑戰吧！")
+                        tutorialTextBox("點擊畫面上的『第 1 關』圖示\n開始第一個挑戰吧！")
                             .offset(y: tutorialTextAtBottom ? UIScreen.main.bounds.height/2 - 80 : 0)
                             .animation(.easeInOut(duration: 1.0), value: tutorialTextAtBottom)
 
@@ -224,7 +224,7 @@ struct MainMenuView: View {
                         }
 
                     case 2:
-                        tutorialTextBox("這裡會顯示關卡紀錄，點『開始挑戰』就能進入遊戲。")
+                        tutorialTextBox("這裡會顯示關卡紀錄\n點『開始挑戰』就能進入遊戲。")
                             .offset(y: tutorialTextAtBottom ? UIScreen.main.bounds.height/2 - 80 : 0)
                             .animation(.easeInOut(duration: 1.0), value: tutorialTextAtBottom)
 
@@ -529,7 +529,7 @@ struct StageDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("👑 最高紀錄").font(.custom("CEF Fonts CJK Mono", size: 20)).bold()
                         Text("評價: \(res.evaluation)")
-                        Text("最高連擊: \(res.maxCombo)")
+                        Text("最高連對: \(res.maxCombo)")
                         Text("答對題數: \(res.correctlyAnswered) / \(res.totalQuestions)")
                     }
                     .font(.custom("CEF Fonts CJK Mono", size: 18))
