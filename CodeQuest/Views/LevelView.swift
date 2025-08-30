@@ -190,7 +190,8 @@ struct LevelView: View {
         }
         .edgesIgnoringSafeArea(.all)
         .onChange(of: viewModel.questionRefreshID) { handleNewQuestion() }
-        .onChange(of: viewModel.comboCount) { newComboCount in
+        .onChange(of: viewModel.comboCount)
+        { _, newComboCount in
             // 如果連對數大於 1，才顯示連對
             if newComboCount > 1 {
                 // 先取消舊的計時器，避免衝突
