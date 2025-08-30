@@ -156,11 +156,11 @@ struct GameNavigationView: View {
         // ✅ Alert：打開 IG or Safari
         .alert("隨時聯絡我們", isPresented: $showPersonalAlert) {
             Button("打開 IG") {
-                openInstagram(username: "wi.lson_0911")
+                openInstagram(username: "full_score_top")
             }
             Button("取消", role: .cancel) { }
         } message: {
-            Text("我們的 IG：@wi.lson_0911")
+            Text("我們的 IG：@full_score_top")
         }
     }
     

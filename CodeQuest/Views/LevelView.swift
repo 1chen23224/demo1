@@ -1,4 +1,10 @@
 import SwiftUI
+// ✨ NEW: 定義提示按鈕的三種狀態，讓 UI 邏輯更清晰
+enum HintState {
+    case available      // 可用
+    case activeOnQuestion // 在本題已啟用
+    case disabled       // 本關已用完
+}
 
 struct LevelView: View {
     @Binding var isGameActive: Bool
@@ -10,7 +16,6 @@ struct LevelView: View {
     @State private var isImagePopupVisible = false
     @State private var autoClosePopupTask: DispatchWorkItem?
     @State private var comboDisplayVisible = false
-    // ... LevelView 的其他狀態變數
     @State private var autoCloseComboTask: DispatchWorkItem?
     // --- Tutorial 狀態 ---
     @State private var tutorialStep: Int? = nil    // nil 表示沒有進行教學
@@ -19,6 +24,19 @@ struct LevelView: View {
     // --- 答對/答錯動畫狀態 ---
     @State private var feedbackColor: Color? = nil
     @State private var showFeedbackOverlay = false
+    
+    @State private var glowingOption: String? = nil
+    
+    // ✨ NEW: 計算當前的提示狀態
+    private var hintState: HintState {
+        if !viewModel.canUseHint {
+            return .disabled //  viewModel 說本關沒次數了 -> 禁用
+        }
+        if glowingOption != nil {
+            return .activeOnQuestion // 本題已經有選項在發光了 -> 暫時失效
+        }
+        return .available // 其他情況 -> 可用
+    }
 
     private var currentProgress: Double {
         if viewModel.totalQuestions == 0 { return 0 }
@@ -27,16 +45,11 @@ struct LevelView: View {
 
     /// 計算當前章節編號
     private var chapterx: Int {
-        // 假設 GameDataService.shared.chapterAndStageInChapter(for:)
-        // 是一個方法，會回傳一個元組 (章節編號, 章節內關卡編號)
-        // 我們只取回傳元組中的第一個值，也就是章節編號
         GameDataService.shared.chapterAndStageInChapter(for: viewModel.currentStage).0
     }
 
     /// 根據章節編號決定要顯示的角色圖片名稱
     private var characterImageName: String {
-        // 取得當前章節編號，並取其與 5 之間的最小值
-        // 這樣可以確保角色圖片名稱不會超過 "character5"
         "character\(min(chapterx, 5))"
     }
     
@@ -44,24 +57,32 @@ struct LevelView: View {
     var body: some View {
         ZStack {
             // --- 主要遊戲畫面 ---
+            // VStack 是實現上下 50/50 分割並緊密相連的最直接方式
             VStack(spacing: 0) {
-                ZStack(alignment: .bottom) {
+                
+                // --- 天空部分 ---
+                // 因為 ScrollingBackgroundView 現在會自動填滿空間，
+                // 所以最簡單的佈局就能正常運作
+                ZStack {
                     Color(red: 95/255, green: 191/255, blue: 235/255)
                     ScrollingBackgroundView(
                         scrollTrigger: viewModel.score,
                         imageName: backgroundName
                     )
-                    .offset(y: 165)
                 }
-                .frame(height: UIScreen.main.bounds.height * 0.5)
+                .frame(maxHeight: .infinity)
                 .clipped()
 
+                // --- 地面部分 ---
+                // 這個 ZStack 會自動佔據 VStack 分配給它的下半部所有空間
                 ZStack {
+                    // 地面紋理
                     Image("ground-texture")
                         .resizable()
                         .scaledToFill()
                         .clipped()
 
+                    // --- 選項按鈕 ---
                     VStack(spacing: 15) {
                         Spacer()
                         ForEach(viewModel.currentQuestion.options.filter { !$0.isEmpty }, id: \.self) { option in
@@ -69,16 +90,18 @@ struct LevelView: View {
                                 optionText: option,
                                 selectedOption: $selectedOption,
                                 isSubmitted: $isAnswerSubmitted,
-                                correctAnswer: viewModel.currentQuestion.correctAnswer
+                                correctAnswer: viewModel.currentQuestion.correctAnswer,
+                                glowingOption: glowingOption
                             )
                             .modifier(ShakeEffect(attempts: wrongAttempts.filter { $0 == option }.count))
                             .onTapGesture { self.handleTap(on: option) }
                         }
                         Spacer()
                     }
+                    .frame(maxHeight: .infinity)
                     .padding(.horizontal)
-                    .offset(y: -10)
-
+                    
+                    // --- 進度條 ---
                     VStack {
                         ProgressBar(
                             progress: currentProgress,
@@ -86,16 +109,27 @@ struct LevelView: View {
                             currentQuestion: min(viewModel.correctlyAnsweredCount + 1, max(1, viewModel.totalQuestions)),
                             totalQuestions: viewModel.totalQuestions
                         )
-                        .offset(y: -30)
+                        // 這個 offset 是為了讓進度條跨坐在分割線上，屬於 UI 設計，予以保留
+                        .offset(y: -20)
+                        
                         Spacer()
                     }
                 }
-                .frame(height: UIScreen.main.bounds.height * 0.5)
+                // 讓地面 ZStack 也填滿所有被分配到的垂直空間
+                .frame(maxHeight: .infinity)
             }
             .edgesIgnoringSafeArea(.all)
+        
+    
 
-            // --- 題目列（左文字 / 右圖示按鈕） ---
+            // --- 題目列（最上層 UI） ---
+            // ⭐️ 重構 4: 使用 .safeAreaInset 來放置頂部題目標題列
+            // 這是最理想的作法，可以完美適應各種機型的安全區域。
             VStack {
+                // 這個 VStack 現在是空的，因為 QuestionBar 已經被移到下面的 .safeAreaInset 中
+                Spacer()
+            }
+            .safeAreaInset(edge: .top) {
                 QuestionBar(
                     text: viewModel.currentQuestion.questionText,
                     hasImage: viewModel.currentQuestion.imageName != nil,
@@ -103,10 +137,11 @@ struct LevelView: View {
                     showHandHint: false,
                     onImageTap: { openImageFromIcon() }
                 )
-                .padding(.top, 40)
                 .padding(.horizontal)
-                Spacer()
+                .padding(.vertical, 20)
             }
+        
+    
 
             // --- 自動圖片彈窗 ---
             if isImagePopupVisible, let imageName = viewModel.currentQuestion.imageName {
@@ -128,9 +163,9 @@ struct LevelView: View {
                                 .shadow(radius: 5)
                         }
                         HintView(
-                            keyword: viewModel.currentQuestion.keyword,
-                            isHintVisible: viewModel.isHintVisible,
-                            action: { viewModel.showHint() }
+                            state: hintState,
+                            remainingCount: viewModel.hintsRemaining,
+                            action: { useHint() }
                         )
                     }
                     Spacer()
@@ -223,11 +258,29 @@ struct LevelView: View {
     }
 
     private var backgroundName: String { viewModel.backgroundImageName }
+    
+    // 🔧 MODIFIED: 修改 useHint 函式，加入更多邏輯判斷
+    private func useHint() {
+        // 只有在按鈕可用時才執行
+        guard hintState == .available else { return }
+
+        // 呼叫 viewModel 的方法來使用提示，如果成功（還有次數）
+        if viewModel.useHint() {
+            // 才讓正確答案發光
+            withAnimation(.easeInOut(duration: 0.5)) {
+                glowingOption = viewModel.currentQuestion.correctAnswer
+            }
+        }
+    }
 
     private func handleTap(on option: String) {
         guard !isAnswerSubmitted else { return }
         isAnswerSubmitted = true
         selectedOption = option
+        
+        // ✨ NEW: 玩家作答後，取消發光效果
+        glowingOption = nil
+        
         if option != viewModel.currentQuestion.correctAnswer {
             wrongAttempts.append(option)
             triggerFeedback(.red)
@@ -268,6 +321,9 @@ struct LevelView: View {
         isAnswerSubmitted = false
         selectedOption = nil
         autoClosePopupTask?.cancel()
+        
+        // ✨ NEW: 換到新題目時，重置發光選項
+        glowingOption = nil
 
         // 🚀 如果題目有圖片，自動彈窗並在 2.5 秒後關閉
         if let _ = viewModel.currentQuestion.imageName {
@@ -291,7 +347,6 @@ struct LevelView: View {
                 tutorialStep = step + 1
             } else {
                 tutorialStep = nil
-
             }
         }
     }
@@ -442,39 +497,6 @@ struct ResultView: View {
             text.foregroundColor(textColor)
             .font(.custom("CEF Fonts CJK Mono", size: 46))
         }
-    }
-}
-
-
-struct HintView: View {
-    let keyword: String?
-    let isHintVisible: Bool
-    let action: () -> Void
-
-    var body: some View {
-        HStack {
-            Button(action: action) {
-                Image(systemName: "lightbulb.fill")
-                    .font(.title)
-                    .foregroundColor(isHintVisible ? .gray : .yellow)
-                    .padding(12)
-                    .background(Circle().fill(Color.black.opacity(0.5)))
-                    .shadow(radius: 5)
-            }
-            .disabled(keyword == nil || isHintVisible)
-
-            if isHintVisible, let kw = keyword {
-                Text(kw)
-                    .font(.custom("CEF Fonts CJK Mono", size: 26))
-                    .fontWeight(.heavy)
-                    .foregroundColor(.gray)
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 8)
-                    .background(Capsule().fill(Color.white.opacity(0.8)))
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-            }
-        }
-        .animation(.spring(), value: isHintVisible)
     }
 }
 
@@ -636,6 +658,69 @@ struct ImagePopupView: View {
         )
     }
 }
+// 🔧 MODIFIED: 大幅更新 HintView，讓它能顯示不同狀態和計數
+struct HintView: View {
+    let state: HintState
+    let remainingCount: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                // --- 按鈕背景 ---
+                Circle()
+                    .fill(Color.black.opacity(0.5))
+                    .frame(width: 50, height: 50)
+                    .shadow(color: shadowColor.opacity(0.5), radius: 5)
+
+                // --- 圖示 ---
+                Image(systemName: iconName)
+                    .font(.title)
+                    .foregroundColor(iconColor)
+
+                // --- 剩餘次數計數 ---
+                if state == .available && remainingCount > 0 {
+                    Text("\(remainingCount)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.black)
+                        .frame(width: 18, height: 18)
+                        .background(Circle().fill(Color.white))
+                        .offset(x: 18, y: -18)
+                        .transition(.scale.animation(.spring()))
+                }
+            }
+        }
+        // ✨ NEW: 根據狀態決定按鈕是否可點擊
+        .disabled(state != .available)
+        .animation(.spring(), value: state)
+    }
+
+    // --- 根據狀態決定圖示 ---
+    private var iconName: String {
+        switch state {
+        case .available:
+            return "lightbulb.fill"
+        case .activeOnQuestion:
+            return "lightbulb.fill" // 已啟用時圖示不變，但顏色會變
+        case .disabled:
+            return "lightbulb.slash" // 用完時顯示劃掉的圖示
+        }
+    }
+
+    // --- 根據狀態決定圖示和陰影顏色 ---
+    private var iconColor: Color {
+        switch state {
+        case .available:
+            return .yellow
+        case .activeOnQuestion, .disabled:
+            return .gray.opacity(0.7)
+        }
+    }
+    
+    private var shadowColor: Color {
+        state == .available ? .yellow : .clear
+    }
+}
 
 struct QuestionBar: View {
     let text: String
@@ -785,27 +870,64 @@ struct ProgressBar: View {
     }
 }
 
+// 🔧 MODIFIED: 在 OptionButton 中，當提示啟用時，稍微降低非正確選項的亮度
 struct OptionButton: View {
     let optionText: String
     @Binding var selectedOption: String?
     @Binding var isSubmitted: Bool
     let correctAnswer: String
-    var body: some View {
-        Image("option-button-bg").resizable().scaledToFit().frame(height: 90).cornerRadius(15).overlay(
-            Text(optionText).font(.custom("CEF Fonts CJK Mono", size: 26)).fontWeight(.heavy).foregroundColor(Color(red: 60/255, green: 40/255, blue: 40/255)).multilineTextAlignment(.center).minimumScaleFactor(0.5).padding(.vertical, 15).padding(.horizontal, 30)
-        ).opacity(buttonOpacity).shadow(color: buttonColor.opacity(0.8), radius: 10).scaleEffect(isSubmitted && optionText == selectedOption ? 1.05 : 1.0).animation(.spring(response: 0.4, dampingFraction: 0.5), value: selectedOption)
+    let glowingOption: String?
+
+    private var isGlowing: Bool {
+        glowingOption == optionText && !isSubmitted
     }
+
+    var body: some View {
+        Image("option-button-bg").resizable().scaledToFit().frame(height: 90).cornerRadius(15)
+            .overlay(
+                Text(optionText)
+                    .font(.custom("CEF Fonts CJK Mono", size: 26))
+                    .fontWeight(.heavy)
+                    .foregroundColor(Color(red: 60/255, green: 40/255, blue: 40/255))
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.5)
+                    .padding(.vertical, 15)
+                    .padding(.horizontal, 30)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 15)
+                    .stroke(Color.yellow, lineWidth: isGlowing ? 4 : 0)
+                    .shadow(color: .yellow.opacity(0.8), radius: isGlowing ? 10 : 0)
+            )
+            .opacity(buttonOpacity)
+            .shadow(color: buttonColor.opacity(0.8), radius: 10)
+            .scaleEffect(isSubmitted && optionText == selectedOption ? 1.05 : 1.0)
+            .animation(.spring(response: 0.4, dampingFraction: 0.5), value: selectedOption)
+            .animation(.easeInOut(duration: 0.5), value: isGlowing)
+    }
+
     private var buttonColor: Color {
         guard isSubmitted, let selected = selectedOption, optionText == selected else { return .clear }
         return selected == correctAnswer ? .green : .red
     }
+    
     private var buttonOpacity: Double {
-        guard isSubmitted else { return 1.0 }
-        guard let selected = selectedOption else { return 1.0 }
-        if optionText == selected { return 1.0 }
-        return 0.5
+        // 如果答案已提交
+        if isSubmitted {
+            guard let selected = selectedOption else { return 1.0 }
+            return optionText == selected ? 1.0 : 0.5
+        }
+        
+        // 如果提示已啟用
+        if let glowing = glowingOption {
+            // 發光的選項保持不透明，其他選項稍微變暗以突出重點
+            return optionText == glowing ? 1.0 : 0.7
+        }
+        
+        return 1.0
     }
 }
+
 
 #Preview {
     ContentView()

@@ -5,6 +5,7 @@ import CoreGraphics
 struct AlphaShape: Shape {
     let cgImage: CGImage
     var yOffset: CGFloat = -0.1   // 往上微移（0~1 的百分比）
+    var debug: Bool = false       // Debug 開關
 
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -23,12 +24,13 @@ struct AlphaShape: Shape {
                     var py = CGFloat(y) / CGFloat(height)
                     py = min(max(py + yOffset, 0), 1) // ↑ 往上微移
 
-                    path.addRect(CGRect(
+                    let rectCell = CGRect(
                         x: px * rect.width,
                         y: py * rect.height,
                         width: 1,
                         height: 1
-                    ))
+                    )
+                    path.addRect(rectCell)
                 }
             }
         }
@@ -49,7 +51,7 @@ struct HandGuideView: View {
     @State private var animate = false
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 2) {
             Image(systemName: "hand.point.up.left.fill")
                 .resizable()
                 .scaledToFit()
@@ -64,8 +66,9 @@ struct HandGuideView: View {
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.yellow)
                 .shadow(color: .black.opacity(0.7), radius: 3, x: 1, y: 1)
-            .allowsHitTesting(false)
+                .allowsHitTesting(false)
         }
+        
     }
 }
 
@@ -75,6 +78,7 @@ struct ChapterMaskView: View {
     let chapterNumber: Int
     let onChapterSelect: (Int) -> Void
     var showDebugBorder: Bool = false
+    var yOffset: CGFloat = 0   // 👈 接收外部調整
     @State private var isPulsing = false
 
     var body: some View {
@@ -104,10 +108,18 @@ struct ChapterMaskView: View {
                     )
             }
             .disabled(!isUnlocked)
-            .contentShape(AlphaShape(cgImage: cgImage))
+            .contentShape(AlphaShape(cgImage: cgImage, yOffset: yOffset))
             .buttonStyle(
                 (isUnlocked && !isNew) ? AlwaysPressedStyle() : .init()
             )
+            
+            // Debug: 顯示 AlphaShape 範圍
+            .overlay {
+                if showDebugBorder {
+                    AlphaShape(cgImage: cgImage, yOffset: yOffset, debug: true)
+                        .stroke(Color.red.opacity(0.5), lineWidth: 0.5)
+                }
+            }
             
             .onChange(of: isNew, initial: true) { _, newValue in
                 if newValue {
@@ -134,43 +146,65 @@ struct ChapterSelectionView: View {
     @State private var showGuide: Bool = false
     var showDebugBorder: Bool = false
     
+    // Debug: 動態調整 yOffset
+    @State private var debugYOffset: CGFloat = 0
+    
+    // 章節相對配置（比例）
+    let chapterConfigs: [(chapter: Int, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat)] = [
+        (1, 0.565, 0.275, 1.02, 0.28),  // 第一章
+        (2, 0.42, 0.344, 0.42, 0.6),   // 第二章
+        (3, 0.58, 0.377, 0.31, 0.28),  // 第三章
+        (4, 0.205, 0.525, 0.36, 0.28), // 第四章
+        (5, 0.475, 0.62, 0.84, 0.78)  // 第五章
+    ]
+    
     var body: some View {
         ZStack {
             // --- 地圖層 ---
-            ZStack {
-                GeometryReader { geo in
-                    ZStack {
-                        Color.black.ignoresSafeArea()
-                        Image("selecting")
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: geo.size.width, height: geo.size.height)
-                            .clipped()
-                            .ignoresSafeArea()
+            GeometryReader { geo in
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    
+                    // --- 修改開始 ---
+                    // 將背景圖放在一個透明的 Color View 的 overlay 中
+                    Color.clear // 建立一個佔滿全螢幕的透明基底
+                        .overlay(
+                            Image("selecting")
+                                .resizable()
+                                .scaledToFill() // 維持比例放大填滿
+                                // 👇 關鍵：控制圖片如何對齊容器
+                                // .topLeading 會將圖片的左上角對齊容器的左上角
+                                // 您可以依據圖片的重點區域選擇不同的對齊方式
+                                // 例如 .top, .center, .bottomTrailing 等
+                                .frame(width: geo.size.width + 200, height: geo.size.height + 90, alignment: .topLeading)
+                        )
+                        .clipped() // 裁切掉超出螢幕範圍的部分
+                        .ignoresSafeArea()
+                    // --- 修改結束 ---
+                    
+
+                    // 依照比例擺放章節
+                    ForEach(chapterConfigs, id: \.chapter) { config in
+                        ChapterMaskView(
+                            chapterNumber: config.chapter,
+                            onChapterSelect: { chapter in
+                                onChapterSelect(chapter)
+                                dismissGuideIfNeeded()
+                            },
+                            showDebugBorder: showDebugBorder,
+                            yOffset: debugYOffset
+                        )
+                        .frame(
+                            width: geo.size.width * config.w,
+                            height: geo.size.height * config.h
+                        )
+                        .position(
+                            x: geo.size.width * config.x,
+                            y: geo.size.height * config.y
+                        )
                     }
                 }
-
-                ZStack {
-                    ChapterMaskView(chapterNumber: 1, onChapterSelect: { chapter in
-                        onChapterSelect(chapter)
-                        dismissGuideIfNeeded()
-                    }, showDebugBorder: showDebugBorder)
-                    .frame(width: 320, height: 215).offset(x: 25, y: -175)
-                    
-                    ChapterMaskView(chapterNumber: 2, onChapterSelect: onChapterSelect, showDebugBorder: showDebugBorder)
-                        .frame(width: 170, height: 160).offset(x: -30, y: -115)
-                    ChapterMaskView(chapterNumber: 3, onChapterSelect: onChapterSelect, showDebugBorder: showDebugBorder)
-                        .frame(width: 125, height: 100).offset(x: 33, y: -89)
-                    ChapterMaskView(chapterNumber: 4, onChapterSelect: onChapterSelect, showDebugBorder: showDebugBorder)
-                        .frame(width: 220, height: 175).offset(x: -115, y: 22)
-                    ChapterMaskView(chapterNumber: 5, onChapterSelect: onChapterSelect, showDebugBorder: showDebugBorder)
-                        .frame(width: 500, height: 385).offset(x: -10, y: 95)
-                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, 25) // 想要的「左移」效果
-            
-            .ignoresSafeArea()
             
             // --- 標題 ---
             VStack {
@@ -179,17 +213,31 @@ struct ChapterSelectionView: View {
                     .foregroundColor(.black)
                 Spacer()
             }
-
             
             // --- 首次教學引導 ---
             if showGuide {
                 HandGuideView()
-                    .offset(x: 100, y: -200) // 指向第一章
+                    .position(x: 250, y: 170)
                     .transition(.opacity)
+            }
+            
+            // --- Debug 控制區 ---
+            if showDebugBorder {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Text("yOffset: \(String(format: "%.2f", debugYOffset))")
+                            .foregroundColor(.yellow)
+                        Slider(value: $debugYOffset, in: -0.3...0.3, step: 0.01)
+                    }
+                    .padding()
+                    .background(Color.black.opacity(0.6))
+                    .cornerRadius(12)
+                    .padding(.bottom, 20)
+                }
             }
         }
         .onAppear {
-            // ✅ 判斷條件：最高解鎖章節 == 1，表示玩家沒打過任何關
             if dataService.highestUnlockedChapter == 1 {
                 showGuide = true
             }
@@ -210,7 +258,7 @@ struct BottomTabButton: View {
     let title: String
     let tag: Int
     let isSelected: Bool
-    var isEnabled: Bool = true   // 👈 新增，預設可用
+    var isEnabled: Bool = true
     let action: () -> Void
 
     var body: some View {
@@ -227,7 +275,22 @@ struct BottomTabButton: View {
             }
             .padding(.horizontal, 20)
         }
-        .disabled(!isEnabled) // 👈 不可點擊
+        .disabled(!isEnabled)
     }
 }
 
+// MARK: - 預覽
+struct ChapterSelectionView_Previews: PreviewProvider {
+    static var previews: some View {
+        ChapterSelectionView(
+            onChapterSelect: { chapter in
+                print("Selected chapter: \(chapter)")
+            },
+            onSelectReviewTab: {
+                print("Review Tab Selected")
+            },
+            showDebugBorder: true // 👈 開啟 Debug Mode
+        )
+        .previewDisplayName("章節地圖 Debug")
+    }
+}

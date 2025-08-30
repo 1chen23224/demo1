@@ -124,26 +124,32 @@ class GameViewModel: ObservableObject {
     func startGame(stage: Int) {
         self.currentStage = stage
         let (chapterNumber, stageInChapter) = dataService.chapterAndStageInChapter(for: stage)
-        let chapterSize = dataService.stagesInChapter(chapterNumber)
         
-        let reviewCount = max(1, chapterSize / 6)
-        let interval = chapterSize / (reviewCount + 1)
-        let reviewStages = Set((1...reviewCount).map { $0 * interval })
+        // 直接向 DataService 詢問關卡類型
+        let type = dataService.getStageType(for: stage)
         
-        if stageInChapter == chapterSize {
-            // Boss
+        switch type {
+        case .boss:
+            // Boss 關邏輯
             let bossQuestions = allQuestions.filter { $0.level == chapterNumber }
             self.quizQuestions = Array(bossQuestions.shuffled().prefix(30))
-        } else if reviewStages.contains(stageInChapter) {
-            // Review
+            
+        case .review:
+            // 複習關邏輯
             let questions = allQuestions.filter { $0.level == chapterNumber }
             self.quizQuestions = Array(questions.shuffled().prefix(15))
-        } else {
-            // Normal
+            
+        case .normal:
+            // 普通關邏輯
             let questionsForThisStage = allQuestions.filter {
-                $0.level == chapterNumber && $0.stage == stageInChapter   // ✅ 改成單一 stage
+                $0.level == chapterNumber && $0.stage == stageInChapter
             }
             self.quizQuestions = questionsForThisStage.shuffled()
+        }
+        
+        // 如果普通關題目為空，印出警告訊息幫助除錯
+        if quizQuestions.isEmpty {
+            print("⚠️ 警告: 關卡 \(stage) (章節 \(chapterNumber)-\(stageInChapter)) 找不到任何題目。請檢查 CSV 資料。")
         }
         
         resetGameStates()
@@ -166,10 +172,34 @@ class GameViewModel: ObservableObject {
         correctlyAnsweredCount = 0
         comboCount = 0
         maxComboAchieved = 0
+        // ✨ NEW: 重置遊戲狀態時，一併重置提示次數計數器
+        hintsUsedThisStage = 0
+        
+    }
+    // ✨ NEW: 每關可用提示的相關屬性
+    static let maxHintsPerStage = 5
+    @Published private(set) var hintsUsedThisStage = 0
+    
+    // ✨ NEW: 計算剩餘提示次數
+    var hintsRemaining: Int {
+        GameViewModel.maxHintsPerStage - hintsUsedThisStage
+    }
+    
+    // ✨ NEW: 判斷是否還能使用提示
+    var canUseHint: Bool {
+        hintsRemaining > 0
     }
     
     // === 遊戲流程 ===
-    func showHint() { isHintVisible = true }
+    func useHint() -> Bool {
+        guard canUseHint else {
+            return false // 沒有提示次數了，返回 false
+        }
+        hintsUsedThisStage += 1
+        // 你也可以在這裡加入使用提示的代價，例如扣分
+        // score -= 5
+        return true // 成功使用提示，返回 true
+    }
     
     func submitAnswer(_ answer: String) {
         let isCorrect = answer == currentQuestion.correctAnswer

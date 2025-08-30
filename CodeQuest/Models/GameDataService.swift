@@ -240,28 +240,34 @@ class GameDataService: ObservableObject {
 // ======================================================
 
 enum StageType {
-    case normal(Int)   // 普通關（帶章內序號）
-    case review        // 複習關
-    case boss          // 最終關
+    case normal
+    case review
+    case boss
 }
 
 extension GameDataService {
-    func stageType(for stageNumber: Int) -> StageType {
+    func getStageType(for stageNumber: Int) -> StageType {
         let (chapter, stageInChapter) = chapterAndStageInChapter(for: stageNumber)
-        let total = stagesInChapter(chapter)
+        let chapterSize = stagesInChapter(chapter)
         
-        // Boss：章內最後一關
-        if stageInChapter == total {
+        // 1. 判斷是否為 Boss 關
+        if stageInChapter == chapterSize {
             return .boss
         }
         
-        // 複習：大約每 20–25% 出現一次
-        let reviewInterval = max(4, total / 5) // 20% (例如15關 → 每3關，但保底4避免太頻繁)
-        if stageInChapter % (reviewInterval + 1) == 0 {
+        // 2. 使用 GameViewModel 中的判斷邏輯來判斷複習關
+        // 這是你目前實際使用的邏輯，我們把它統一到這裡
+        let reviewCount = max(1, chapterSize / 6)
+        guard reviewCount > 0 else { return .normal } // 如果章節太小，沒有複習關
+        
+        let interval = chapterSize / (reviewCount + 1)
+        let reviewStages = Set((1...reviewCount).map { $0 * interval })
+        
+        if reviewStages.contains(stageInChapter) {
             return .review
         }
         
-        // 其餘是普通
-        return .normal(stageInChapter)
+        // 3. 都不是，就是普通關
+        return .normal
     }
 }

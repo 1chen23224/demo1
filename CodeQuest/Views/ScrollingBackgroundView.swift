@@ -34,7 +34,6 @@ struct ScrollingBackgroundView: View {
                     .offset(x: self.scrollPosition + imageWidth)
                     .ignoresSafeArea()
             }
-            .frame(maxHeight: 267) // ✨ 新增：ZStack 也需要設定最小高度
             .clipped() // 確保超出部分被裁切
             .ignoresSafeArea()
             .onChange(of: scrollTrigger) { _, _ in
