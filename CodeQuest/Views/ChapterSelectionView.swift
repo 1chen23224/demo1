@@ -148,7 +148,10 @@ struct ChapterSelectionView: View {
     
     // Debug: 動態調整 yOffset
     @State private var debugYOffset: CGFloat = 0
-    
+    // ✨ NEW: 用於實現彩蛋功能的狀態變數
+    @State private var mapTapCount = 0
+    @State private var showSecretKeyAlert = false
+    @State private var secretKeyInput = ""
     // 章節相對配置（比例）
     let chapterConfigs: [(chapter: Int, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat)] = [
         (1, 0.565, 0.275, 1.02, 0.28),  // 第一章
@@ -172,17 +175,17 @@ struct ChapterSelectionView: View {
                             Image("selecting")
                                 .resizable()
                                 .scaledToFill() // 維持比例放大填滿
-                                // 👇 關鍵：控制圖片如何對齊容器
-                                // .topLeading 會將圖片的左上角對齊容器的左上角
-                                // 您可以依據圖片的重點區域選擇不同的對齊方式
-                                // 例如 .top, .center, .bottomTrailing 等
+                            // 👇 關鍵：控制圖片如何對齊容器
+                            // .topLeading 會將圖片的左上角對齊容器的左上角
+                            // 您可以依據圖片的重點區域選擇不同的對齊方式
+                            // 例如 .top, .center, .bottomTrailing 等
                                 .frame(width: geo.size.width + 200, height: geo.size.height + 95, alignment: .topLeading)
                         )
                         .clipped() // 裁切掉超出螢幕範圍的部分
                         .ignoresSafeArea()
                     // --- 修改結束 ---
                     
-
+                    
                     // 依照比例擺放章節
                     ForEach(chapterConfigs, id: \.chapter) { config in
                         ChapterMaskView(
@@ -211,6 +214,17 @@ struct ChapterSelectionView: View {
                 Text("𝑴 𝑨 𝑷")
                     .font(.custom("CEF Fonts CJK Mono", size: 50))
                     .foregroundColor(.black)
+                // ✨ NEW: 為標題加上點擊手勢
+                    .onTapGesture {
+                        // 每次點擊，計數器加 1
+                        mapTapCount += 1
+                        
+                        // 如果計數器達到 3，就觸發彈窗並重置計數器
+                        if mapTapCount >= 5 {
+                            showSecretKeyAlert = true
+                            mapTapCount = 0
+                        }
+                    }
                 Spacer()
             }
             
@@ -242,9 +256,36 @@ struct ChapterSelectionView: View {
                 showGuide = true
             }
         }
+        // ✨ NEW: 加上 alert 彈窗修飾符
+        .alert("芝麻開門！！", isPresented: $showSecretKeyAlert) {
+            // 提供一個文字輸入框
+            TextField("請輸入凍頂可可...", text: $secretKeyInput)
+                .autocapitalization(.none)
+            
+            // "取消" 按鈕
+            Button("取消", role: .cancel) {
+                // 重置狀態
+                mapTapCount = 0
+                secretKeyInput = ""
+            }
+            
+            // "解鎖" 按鈕
+            Button("解鎖") {
+                // 驗證密鑰 (移除前後空格後比對)
+                if secretKeyInput.trimmingCharacters(in: .whitespacesAndNewlines) == "cocoyyds" {
+                    // 如果正確，就調用 dataService 的方法
+                    dataService.unlockAllStages()
+                }
+                // 重置狀態
+                mapTapCount = 0
+                secretKeyInput = ""
+            }
+        } message: {
+            // 提示文字
+            Text("連續點擊標題5次可呼喚可可。")
+        }
         .navigationBarHidden(true)
     }
-    
     private func dismissGuideIfNeeded() {
         if showGuide {
             withAnimation { showGuide = false }
