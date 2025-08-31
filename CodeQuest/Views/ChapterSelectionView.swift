@@ -1,20 +1,40 @@
 import SwiftUI
 import CoreGraphics
 
-// MARK: - 依圖片 alpha 定義點擊範圍（含效能優化 & yOffset 微調）
 struct AlphaShape: Shape {
     let cgImage: CGImage
-    var yOffset: CGFloat = -0.1   // 往上微移（0~1 的百分比）
-    var debug: Bool = false       // Debug 開關
+    var yOffset: CGFloat = -0.1
+    var debug: Bool = false
+
+    // ✅ 1. 定義快取的「鑰匙」(Key)
+    // 我們需要一個獨一無二的標識來區分不同的圖片和 yOffset
+    private struct CacheKey: Hashable {
+        let imageIdentifier: ObjectIdentifier
+        let yOffset: CGFloat
+    }
+
+    // ✅ 2. 建立一個靜態快取字典
+    // `static` 意味著這個快取屬於 AlphaShape 這個類型本身，而不是單一實例。
+    // 所有的 AlphaShape 實例都會共用這一個快取。
+    private static var pathCache: [CacheKey: Path] = [:]
 
     func path(in rect: CGRect) -> Path {
-        var path = Path()
+        // ✅ 3. 為當前的圖片和 yOffset 產生一個獨一無二的鑰匙
+        let key = CacheKey(imageIdentifier: ObjectIdentifier(cgImage), yOffset: yOffset)
+
+        // ✅ 4. 檢查快取中是否已經有計算好的 Path
+        if let cachedPath = Self.pathCache[key] {
+            // 如果有，直接回傳快取結果，並根據當前大小進行縮放。超快！
+            return cachedPath.applying(CGAffineTransform(scaleX: rect.width, y: rect.height))
+        }
+        
+        // --- 如果快取中沒有，才執行下面的昂貴計算 ---
+        var calculatedPath = Path()
         let width = cgImage.width
         let height = cgImage.height
         guard let data = cgImage.dataProvider?.data,
-              let ptr = CFDataGetBytePtr(data) else { return path }
+              let ptr = CFDataGetBytePtr(data) else { return calculatedPath }
 
-        // stride 取樣降低計算量（每 3px 取樣一次）
         for y in stride(from: 0, to: height, by: 3) {
             for x in stride(from: 0, to: width, by: 3) {
                 let pixelIndex = (y * width + x) * 4
@@ -22,22 +42,22 @@ struct AlphaShape: Shape {
                 if alpha > 0 {
                     let px = CGFloat(x) / CGFloat(width)
                     var py = CGFloat(y) / CGFloat(height)
-                    py = min(max(py + yOffset, 0), 1) // ↑ 往上微移
+                    py = min(max(py + yOffset, 0), 1)
 
-                    let rectCell = CGRect(
-                        x: px * rect.width,
-                        y: py * rect.height,
-                        width: 1,
-                        height: 1
-                    )
-                    path.addRect(rectCell)
+                    // 注意：我們儲存的是標準化 (normalized, 0-1) 的座標
+                    let rectCell = CGRect(x: px, y: py, width: 1/CGFloat(width), height: 1/CGFloat(height))
+                    calculatedPath.addRect(rectCell)
                 }
             }
         }
-        return path
+        
+        // ✅ 5. 將這次辛苦計算的結果存入快取，供下次使用
+        Self.pathCache[key] = calculatedPath
+        
+        // ✅ 6. 回傳這次計算結果，並根據當前大小進行縮放
+        return calculatedPath.applying(CGAffineTransform(scaleX: rect.width, y: rect.height))
     }
 }
-
 // MARK: - 模擬按下效果
 struct AlwaysPressedStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -135,8 +155,55 @@ struct ChapterMaskView: View {
         }
     }
 }
+// MARK: - 統一座標系的地圖畫布 (已修正)
+struct MapView: View {
+    // ❗️❗️❗️ 關鍵：定義你的地圖原圖尺寸
+    // ❗️不再是內部常數，而是從外部傳入
+    let mapImageName: String
+    let nativeImageSize: CGSize
 
-// MARK: - 主畫面（章節地圖 + 功能按鈕 + 引導）
+    // 接收來自外部的設定
+    let chapterConfigs: [(chapter: Int, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat)]
+    let onChapterSelect: (Int) -> Void
+    var showDebugBorder: Bool = false
+    var debugYOffset: CGFloat = 0
+
+    var body: some View {
+        // 使用一個 ZStack 作為固定大小的「畫布」
+        ZStack {
+            // 底層：背景地圖
+            Image(mapImageName)
+                .resizable()
+
+            // 上層：根據絕對像素座標放置章節
+            ForEach(chapterConfigs, id: \.chapter) { config in
+                ChapterMaskView(
+                    chapterNumber: config.chapter,
+                    onChapterSelect: onChapterSelect,
+                    showDebugBorder: showDebugBorder,
+                    yOffset: debugYOffset
+                )
+                // 1. First, give the view its size.
+                .frame(width: config.w, height: config.h)
+                
+                // ✅ THE FIX: We move the measurement modifier to be BEFORE .position()
+                // 2. NOW, measure its frame while it's still a small, distinct view.
+                .if(config.chapter == 1) { view in
+                    view.modifier(TutorialHighlightModifier(step: 1))
+                }
+                
+                // 3. LAST, position the view (which has now been measured) onto the larger map canvas.
+                .position(x: config.x, y: config.y)
+            }
+        }
+        // ✨ 關鍵修正 1: 只保留 frame，建立一個固定原始尺寸的畫布
+        // 這就是我們的絕對座標系統的基礎
+        .frame(width: nativeImageSize.width, height: nativeImageSize.height)
+        // ✨ .aspectRatio 已被移除，縮放工作交給父視圖處理
+    }
+}
+
+// MARK: - 主畫面 (已修正)
 struct ChapterSelectionView: View {
     @ObservedObject private var dataService = GameDataService.shared
     let onChapterSelect: (Int) -> Void
@@ -145,68 +212,80 @@ struct ChapterSelectionView: View {
     @State private var selectedTabIndex: Int = 0
     @State private var showGuide: Bool = false
     var showDebugBorder: Bool = false
-    
+    // ✅ 新增：用一個 @State 變數來儲存第一章的 frame 位置
+    @State private var chapter1Frame: CGRect? = nil
     // Debug: 動態調整 yOffset
     @State private var debugYOffset: CGFloat = 0
     // ✨ NEW: 用於實現彩蛋功能的狀態變數
     @State private var mapTapCount = 0
     @State private var showSecretKeyAlert = false
     @State private var secretKeyInput = ""
-    // 章節相對配置（比例）
-    let chapterConfigs: [(chapter: Int, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat)] = [
-        (1, 0.565, 0.275, 1.02, 0.28),  // 第一章
-        (2, 0.42, 0.344, 0.42, 0.6),   // 第二章
-        (3, 0.58, 0.377, 0.31, 0.28),  // 第三章
-        (4, 0.205, 0.525, 0.36, 0.28), // 第四章
-        (5, 0.475, 0.62, 0.84, 0.78)  // 第五章
+    
+    // 1. 定義 iPhone 的資源設定
+    let iphoneChapterConfigs: [(chapter: Int, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat)] = [
+        // (章節, 中心點x, 中心點y, 寬度, 高度) - 請使用你的實際座標
+        (1, 395.5, 459, 557, 370),
+        (2, 298.5, 563.5, 289, 271),
+        (3, 412, 611.5, 208, 167),
+        (4, 150.5, 808, 241, 296),
+        (5, 337.5, 934.5, 583, 675)
     ]
+    let iphoneMapImageName = "selecting3" // iPhone 專用地圖檔名
+    let iphoneNativeImageSize = CGSize(width: 710, height: 1536)
+    
+    // 2. 定義 iPad/通用 的資源設定
+    let generalChapterConfigs: [(chapter: Int, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat)] = [
+        // (章節, 中心點x, 中心點y, 寬度, 高度) - 請使用你的實際座標
+        (1, 552.5, 459, 557, 370),
+        (2, 457, 564, 292, 272),
+        (3, 569, 612, 208, 168),
+        (4, 309, 808, 244, 296),
+        (5, 495, 935, 584, 676)
+    ]
+    let generalMapImageName = "selecting" // 原始地圖檔名
+    let generalNativeImageSize = CGSize(width: 1024, height: 1536) // 原始地圖尺寸
+    
+    // 3. 執行期的變數，用來決定當前要用哪一套設定
+    @State private var currentConfigs: [(chapter: Int, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat)] = []
+    @State private var currentMapImageName: String = ""
+    @State private var currentNativeImageSize: CGSize = .zero
     
     var body: some View {
         ZStack {
-            // --- 地圖層 ---
-            GeometryReader { geo in
-                ZStack {
-                    Color.black.ignoresSafeArea()
+            // --- 地圖層 (使用新的縮放邏輯) ---
+            if !currentMapImageName.isEmpty {
+                
+                // ✨ 關鍵修正 2: 使用 GeometryReader 獲取螢幕實際可用空間
+                GeometryReader { geometry in
+                    let nativeSize = currentNativeImageSize
+                    let screenSize = geometry.size
                     
-                    // --- 修改開始 ---
-                    // 將背景圖放在一個透明的 Color View 的 overlay 中
-                    Color.clear // 建立一個佔滿全螢幕的透明基底
-                        .overlay(
-                            Image("selecting")
-                                .resizable()
-                                .scaledToFill() // 維持比例放大填滿
-                            // 👇 關鍵：控制圖片如何對齊容器
-                            // .topLeading 會將圖片的左上角對齊容器的左上角
-                            // 您可以依據圖片的重點區域選擇不同的對齊方式
-                            // 例如 .top, .center, .bottomTrailing 等
-                                .frame(width: geo.size.width + 200, height: geo.size.height + 95, alignment: .topLeading)
-                        )
-                        .clipped() // 裁切掉超出螢幕範圍的部分
-                        .ignoresSafeArea()
-                    // --- 修改結束 ---
+                    // ✨ 計算要「填滿」螢幕所需的縮放比例 (ContentMode.fill)
+                    let widthScale = screenSize.width / nativeSize.width
+                    let heightScale = screenSize.height / nativeSize.height
+                    let scale = max(widthScale, heightScale)
                     
-                    
-                    // 依照比例擺放章節
-                    ForEach(chapterConfigs, id: \.chapter) { config in
-                        ChapterMaskView(
-                            chapterNumber: config.chapter,
-                            onChapterSelect: { chapter in
-                                onChapterSelect(chapter)
-                                dismissGuideIfNeeded()
-                            },
-                            showDebugBorder: showDebugBorder,
-                            yOffset: debugYOffset
-                        )
-                        .frame(
-                            width: geo.size.width * config.w,
-                            height: geo.size.height * config.h
-                        )
-                        .position(
-                            x: geo.size.width * config.x,
-                            y: geo.size.height * config.y
-                        )
-                    }
+                    MapView(
+                        mapImageName: currentMapImageName,
+                        nativeImageSize: currentNativeImageSize,
+                        chapterConfigs: currentConfigs,
+                        onChapterSelect: { chapter in
+                            onChapterSelect(chapter)
+                            dismissGuideIfNeeded()
+                        },
+                        showDebugBorder: showDebugBorder,
+                        debugYOffset: debugYOffset
+                    )
+                    .scaleEffect(scale)
+                    // ✨ 關鍵修正：告訴 SwiftUI，縮放後的視圖其「佈局框架」也應該更新
+                    // 這會讓「點擊熱區」與「視覺外觀」保持同步
+                    .frame(
+                        width: nativeSize.width * scale,
+                        height: nativeSize.height * scale
+                    )
                 }
+                // ✨ 將 .ignoresSafeArea() 移到容器 GeometryReader 上
+                .ignoresSafeArea()
             }
             
             // --- 標題 ---
@@ -214,12 +293,8 @@ struct ChapterSelectionView: View {
                 Text("𝑴 𝑨 𝑷")
                     .font(.custom("CEF Fonts CJK Mono", size: 50))
                     .foregroundColor(.black)
-                // ✨ NEW: 為標題加上點擊手勢
                     .onTapGesture {
-                        // 每次點擊，計數器加 1
                         mapTapCount += 1
-                        
-                        // 如果計數器達到 3，就觸發彈窗並重置計數器
                         if mapTapCount >= 5 {
                             showSecretKeyAlert = true
                             mapTapCount = 0
@@ -227,65 +302,74 @@ struct ChapterSelectionView: View {
                     }
                 Spacer()
             }
-            
-            // --- 首次教學引導 ---
-            if showGuide {
-                HandGuideView()
-                    .position(x: 250, y: 170)
-                    .transition(.opacity)
+        }
+        
+        .background(Color.black.ignoresSafeArea())
+        // ✅ FIX 2: We use a stable .overlay for the guide view.
+        // This prevents the guide itself from affecting the main content's layout.
+        .overlay(
+            ZStack { // Use a ZStack inside the overlay for positioning
+                if showGuide, let frame = chapter1Frame {
+                    
+                    // The actual HandGuideView
+                    HandGuideView()
+                        .position(x: frame.midX + 70, y: frame.minY + 120)
+                }
             }
-            
-            // --- Debug 控制區 ---
-            if showDebugBorder {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Text("yOffset: \(String(format: "%.2f", debugYOffset))")
-                            .foregroundColor(.yellow)
-                        Slider(value: $debugYOffset, in: -0.3...0.3, step: 0.01)
-                    }
-                    .padding()
-                    .background(Color.black.opacity(0.6))
-                    .cornerRadius(12)
-                    .padding(.bottom, 20)
+            .ignoresSafeArea() // The overlay should ignore safe areas to use global coordinates
+        )
+        // ✅ FIX 1: We check if the value has changed before updating the state.
+        .onPreferenceChange(TutorialHighlightKey.self) { value in
+            let newFrame = value[1]
+            // Only update the state if the new frame is different from the current one.
+            // This is the key to breaking the infinite loop.
+            if newFrame != self.chapter1Frame {
+                DispatchQueue.main.async {
+                    self.chapter1Frame = newFrame
                 }
             }
         }
         .onAppear {
+            // 4. ✨ 核心邏輯：在 View 出現時，判斷裝置類型並設定資源
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                currentConfigs = iphoneChapterConfigs
+                currentMapImageName = iphoneMapImageName
+                currentNativeImageSize = iphoneNativeImageSize
+            } else {
+                // 如果是 iPad 或其他裝置
+                currentConfigs = generalChapterConfigs
+                currentMapImageName = generalMapImageName
+                currentNativeImageSize = generalNativeImageSize
+            }
             if dataService.highestUnlockedChapter == 1 {
-                showGuide = true
+                 // 稍微延遲以確保 PreferenceKey 有時間傳遞
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showGuide = true
+                }
             }
         }
-        // ✨ NEW: 加上 alert 彈窗修飾符
         .alert("芝麻開門！！", isPresented: $showSecretKeyAlert) {
-            // 提供一個文字輸入框
             TextField("請輸入凍頂可可...", text: $secretKeyInput)
                 .autocapitalization(.none)
             
-            // "取消" 按鈕
             Button("取消", role: .cancel) {
-                // 重置狀態
                 mapTapCount = 0
                 secretKeyInput = ""
             }
             
-            // "解鎖" 按鈕
             Button("解鎖") {
-                // 驗證密鑰 (移除前後空格後比對)
                 if secretKeyInput.trimmingCharacters(in: .whitespacesAndNewlines) == "cocoyyds" {
-                    // 如果正確，就調用 dataService 的方法
                     dataService.unlockAllStages()
                 }
-                // 重置狀態
                 mapTapCount = 0
                 secretKeyInput = ""
             }
         } message: {
-            // 提示文字
             Text("連續點擊標題5次可呼喚可可。")
         }
         .navigationBarHidden(true)
     }
+    
     private func dismissGuideIfNeeded() {
         if showGuide {
             withAnimation { showGuide = false }
@@ -319,7 +403,6 @@ struct BottomTabButton: View {
         .disabled(!isEnabled)
     }
 }
-
 // MARK: - 預覽
 struct ChapterSelectionView_Previews: PreviewProvider {
     static var previews: some View {

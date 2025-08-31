@@ -1,38 +1,149 @@
 import SwiftUI
+// MARK: - ✨ FINAL: The Bulletproof Tutorial Overlay
+struct TutorialOverlayView: View {
+    @Binding var showTutorial: Bool
+    @Binding var tutorialStep: Int
+    let highlights: [Int: CGRect]
 
+    private var tutorialText: String {
+        switch tutorialStep {
+        case 0:
+            return "🎇 歡迎遊玩「滿分上路」 🚗 \n一起來通關練題往滿分前進吧。"
+        case 1:
+            return "這裡有「重點整理」和「導覽書」，是你通關路上的好幫手！"
+        case 2:
+            return "完成關卡後，你可以在主選單的「錯題複習」中，重溫所有答錯的題目！"
+        case 3:
+            return "準備好了嗎？\n請點擊第一關，開始你的旅程！"
+        case 4:
+            return "這裡是關卡的詳細資訊，你可以在這裡看到最佳紀錄。"
+        case 5:
+            return "點擊「開始挑戰」，立刻進入關卡！"
+        default:
+            return ""
+        }
+    }
+    
+    private var showNextButton: Bool {
+        return tutorialStep != 3 && tutorialStep != 5
+    }
+    
+    var body: some View {
+        ZStack {
+            // LAYER 1: The visual background overlay.
+            // This entire layer is made NON-INTERACTIVE. Taps will pass through it.
+            Color.black.opacity(0.7)
+                .mask(
+                    // We create a mask that is a full rectangle WITH A HOLE CUT OUT.
+                    Rectangle()
+                        .overlay(
+                            // This is the hole
+                            cutoutShape()
+                                .blendMode(.destinationOut)
+                        )
+                )
+                .compositingGroup() // Needed for the blend mode to work correctly
+                .allowsHitTesting(false) // THE MOST IMPORTANT PART!
+
+            // LAYER 2: The interactive text box.
+            VStack(spacing: 20) {
+                Text(tutorialText)
+                    .font(.custom("CEF Fonts CJK Mono", size: 20))
+                    .bold()
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(Color.blue.opacity(0.8))
+                    .cornerRadius(15)
+                    .shadow(radius: 10)
+                
+                if showNextButton {
+                    Button(action: advanceStep) {
+                        Text("下一步")
+                            .font(.custom("CEF Fonts CJK Mono", size: 18))
+                            .bold()
+                            .foregroundColor(.blue)
+                            .padding(.horizontal, 30)
+                            .padding(.vertical, 10)
+                            .background(Color.white)
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+            .padding()
+            .position(tutorialTextPosition())
+            // For debugging: You can see the frame of the text box.
+            // .border(Color.red)
+        }
+        .ignoresSafeArea()
+        .transition(.opacity)
+    }
+
+    // A helper function to create the cutout shape based on the highlight rect
+    @ViewBuilder
+    private func cutoutShape() -> some View {
+        if let highlightRect = highlights[tutorialStep], tutorialStep != 2 {
+            RoundedRectangle(cornerRadius: 15)
+                .frame(width: highlightRect.width + 16, height: highlightRect.height + 16)
+                .position(x: highlightRect.midX, y: highlightRect.midY)
+        } else {
+            // Return an empty view if there's no highlight
+            EmptyView()
+        }
+    }
+    
+    private func advanceStep() {
+        withAnimation {
+            if tutorialStep < 5 {
+                tutorialStep += 1
+            }
+        }
+    }
+    
+    private func tutorialTextPosition() -> CGPoint {
+        if tutorialStep == 0 || tutorialStep == 2 {
+            return CGPoint(x: UIScreen.main.bounds.midX, y: UIScreen.main.bounds.midY)
+        }
+        
+        if let highlightRect = highlights[tutorialStep] {
+            if highlightRect.midY < UIScreen.main.bounds.midY {
+                return CGPoint(x: UIScreen.main.bounds.midX, y: highlightRect.maxY + 100)
+            } else {
+                return CGPoint(x: UIScreen.main.bounds.midX, y: highlightRect.minY - 120)
+            }
+        }
+        
+        return CGPoint(x: UIScreen.main.bounds.midX, y: UIScreen.main.bounds.midY + 200)
+    }
+}
+// 🔧 MODIFIED: 全面重構 MainMenuView 以實現完美的頂部 UI 對齊
 struct MainMenuView: View {
     @ObservedObject private var dataService = GameDataService.shared
     @State private var showingDetailForStage: Int? = nil
 
-    // --- ✨ 過場動畫狀態 ---
+    // --- 過場動畫狀態 ---
     @State private var showTransitionOverlay = false
     @State private var overlayOpacity: Double = 1.0
-    @State private var textOpacity: Double = 0.0   // 文字透明度
+    @State private var textOpacity: Double = 0.0
     @State private var pendingStage: Int? = nil
 
-    // --- ✨ 新手教學狀態 ---
-    @State private var showTutorial = false
-    @State private var tutorialStep = 0
-    @State private var arrowOffset: CGFloat = -80
+    // --- ✨ NEW: 重構後的新手教學狀態 ---
+    @State private var showTutorial = false // 是否顯示教學
+    @State private var tutorialStep = 0   // 目前教學步驟
+    @State private var tutorialHighlights: [Int: CGRect] = [:] // 儲存高亮位置
 
-    @State private var dimBackground = true
-    @State private var tutorialTextAtBottom = false
-
-    // --- ✨ 新增：過關祝賀 ---
+    // --- 過關祝賀 ---
     @State private var showCongrats = false
-    // ✨ NEW: 新增導覽書的顯示狀態
     @State private var showSummary = false
     @State private var showGuidebook = false
     
-    // MainMenuView 需要知道它是第幾章
+    // ✨ NEW: 引入 sizeClass 以便製作自適應 UI
+    @Environment(\.horizontalSizeClass) var sizeClass
+    
     let chapterNumber: Int
-
     let onStageSelect: (Int) -> Void
     let onBack: () -> Void
-    
-    // 👇 新增：傳出過場狀態給 GameNavigationView
     @Binding var isOverlayActive: Bool
-    
     
     private var stagesForThisChapter: Range<Int> {
         let totalBefore = dataService.chapterStageCounts.prefix(chapterNumber - 1).reduce(0, +)
@@ -41,22 +152,23 @@ struct MainMenuView: View {
         let endStage = totalBefore + chapterSize
         return startStage..<(endStage + 1)
     }
+    
+    // ✨ NEW: 為章節標題定義自適應字體大小
+    private var chapterTitleFontSize: CGFloat {
+        sizeClass == .regular ? 50 : 27
+    }
+    // 👇 在這裡新增教學文字的自適應字體大小
+    private var tutorialFontSize: CGFloat {
+        sizeClass == .regular ? 24 : 13
+    }
+    private var scrollViewOffsetY: CGFloat {
+        sizeClass == .regular ? 0 : 0
+    }
 
     var body: some View {
         ZStack {
-            // --- 背景 ---
-            Image("stage-background\(chapterNumber)")
-                .resizable()
-                .scaledToFill()
-                .edgesIgnoringSafeArea(.all)
-            
-            // --- 主內容 ---
-            VStack(spacing: 50) {
-                Text("第 \(chapterNumber) 章")
-                    .font(.custom("CEF Fonts CJK Mono", size: 40))
-                    .foregroundColor(.white)
-                    .shadow(color: .black.opacity(0.3), radius: 5, y: 5)
-
+            // --- 主內容 (關卡捲軸) ---
+            VStack {
                 GeometryReader { geo in
                     ScrollViewReader { proxy in
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -64,9 +176,9 @@ struct MainMenuView: View {
                                 Capsule()
                                     .fill(Color.black.opacity(0.25))
                                     .frame(height: 25)
-                                    .padding(.horizontal, geo.size.width * -0.01)   // ✅ 改比例
-
-                                HStack(spacing: geo.size.width * 0.08) {         // ✅ 改比例
+                                    .padding(.horizontal, geo.size.width * -0.01)
+                                
+                                HStack(spacing: geo.size.width * 0.13) {
                                     ForEach(stagesForThisChapter, id: \.self) { stage in
                                         StageIconView(
                                             stageNumber: stage,
@@ -76,15 +188,24 @@ struct MainMenuView: View {
                                             result: dataService.getResult(for: stage),
                                             action: {
                                                 self.showingDetailForStage = stage
-                                                if showTutorial && tutorialStep == 1 {
-                                                    tutorialStep = 2
+                                                // ✨ NEW: 當玩家點擊第一關時，推進教學
+                                                if showTutorial && tutorialStep == 3 {
+                                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                                        withAnimation {
+                                                            tutorialStep = 4
+                                                        }
+                                                    }
                                                 }
                                             }
                                         )
                                         .id(stage)
+                                        // ✨ NEW: 標記第一關為教學步驟 2 的高亮目標
+                                        .if(stage == 1) { view in
+                                            view.modifier(TutorialHighlightModifier(step: 3))
+                                        }
                                     }
-                                }
-                                .padding(.horizontal, geo.size.width * 0.15)      // ✅ 改比例
+                                    }
+                                .padding(.horizontal, geo.size.width * 0.08)
                             }
                             .padding(.vertical, 40)
                         }
@@ -96,111 +217,95 @@ struct MainMenuView: View {
                             }
                         }
                     }
-                }
-                .frame(height: 180)  // ✅ 固定高度避免 GeometryReader 撐開
-
-                Spacer()
-            }
-            .padding(.top, 60)
-            
-            
-            // --- 返回按鈕 ---
-            GeometryReader { geo in
-                VStack {
-                    HStack {
-                        Button(action: onBack) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.black.opacity(0.3))
-                                    .shadow(radius: 5)
-                                Circle()
-                                    .strokeBorder(Color.white.opacity(0.4), lineWidth: 2)
-                                    .padding(4)
-                                Image(systemName: "arrow.backward")
-                                    .font(.title3.weight(.bold))
-                                    .foregroundColor(.white.opacity(0.9))
-                            }
-                            .frame(width: 44, height: 44)
-                        }
-                        .padding(.leading, geo.size.width * 0.15)   // ✅ 自動適應 iPhone/iPad
-                        .padding(.vertical, geo.size.height * 0.06)
-                        
-                        // ✨ NEW: 導覽書按鈕
-                        Button(action: {
-                            showGuidebook = true
-                        }) {
-                            Image(systemName: "book.closed.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(.white)
-                                .padding(8)
-                                .background(Color.black.opacity(0.2))
-                                .clipShape(Circle())
-                        }
-                        .padding(.horizontal, geo.size.width * 0.5)
-                        // ✨ NEW: 重點整理按鈕
-                    Button(action: { showSummary = true }) {
-                            Image(systemName: "lightbulb.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(.yellow)
-                        }
-                    .padding(.horizontal, geo.size.width * -0.7)
-                    }
-                    Spacer()
-
-                    
+                    .frame(height: 180)
+                    .offset(y: scrollViewOffsetY)
                 }
             }
-            .edgesIgnoringSafeArea(.all)
-    
-            
-            // --- 關卡細節彈窗 ---
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                Image("stage-background\(chapterNumber)")
+                    .resizable()
+                    .scaledToFill()
+                    .edgesIgnoringSafeArea(.all)
+            )
+            .safeAreaInset(edge: .top) {
+                topBar
+            }
+
+            // --- Overlay 區塊 (全螢幕) ---
             if let stage = showingDetailForStage {
-                StageDetailView(
-                    stageNumber: stage,
-                    chapterNumber: chapterNumber,
-                    result: dataService.getResult(for: stage),
-                    onStart: {
-                        if showTutorial {
-                            tutorialStep = 3
-                        }
-                        self.showingDetailForStage = nil
-                        pendingStage = stage
-                        showTransitionOverlay = true
-                        overlayOpacity = 0.0
-                        textOpacity = 0.0
-                        
-                        withAnimation(.easeIn(duration: 1)) {
-                            overlayOpacity = 1.0
-                        }
-                        withAnimation(.easeIn(duration: 0.8).delay(0.8)) {
-                            textOpacity = 1.0
-                        }
-                        
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-                            if let stage = pendingStage {
-                                onStageSelect(stage)
+                ZStack {
+                    Color.black.opacity(0.6).edgesIgnoringSafeArea(.all)
+                    StageDetailView(
+                        stageNumber: stage,
+                        chapterNumber: chapterNumber,
+                        result: dataService.getResult(for: stage),
+                        isTutorialActive: showTutorial,
+                        onStart: {
+                            // ✨ NEW: 玩家點擊開始，結束教學
+                            if showTutorial {
+                                dataService.markTutorialAsSeen() // Call the new function
+                                showTutorial = false
                             }
-                            withAnimation(.easeOut(duration: 1.0)) {
-                                overlayOpacity = 0
-                                textOpacity = 0
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                                showTransitionOverlay = false
-                                pendingStage = nil
-                                if showTutorial && tutorialStep == 3 {
-                                    showTutorial = false
+                            
+                            self.showingDetailForStage = nil
+                            pendingStage = stage
+                            showTransitionOverlay = true
+                            overlayOpacity = 0.0
+                            textOpacity = 0.0
+                            
+                            withAnimation(.easeIn(duration: 1)) { overlayOpacity = 1.0 }
+                            withAnimation(.easeIn(duration: 0.8).delay(0.8)) { textOpacity = 1.0 }
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                                if let stage = pendingStage {
+                                    onStageSelect(stage)
+                                }
+                                withAnimation(.easeOut(duration: 1.0)) {
+                                    overlayOpacity = 0
+                                    textOpacity = 0
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                    showTransitionOverlay = false
+                                    pendingStage = nil
+                                    if showTutorial && tutorialStep == 3 {
+                                        showTutorial = false
+                                    }
                                 }
                             }
-                        }
-                    },
-                    onCancel: {
-                        self.showingDetailForStage = nil
-                    }
-                )
+                        },
+                        onCancel: { self.showingDetailForStage = nil }
+                    )
+                }
                 .transition(.scale.combined(with: .opacity))
+                .zIndex(50)
             }
-            
-            // --- ✨ 黑幕過場層 ---
+
+            if showSummary {
+                ZStack {
+                    Color.black.opacity(0.6).edgesIgnoringSafeArea(.all)
+                    SummaryView(
+                        chapterNumber: chapterNumber,
+                        onClose: { showSummary = false }
+                    )
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(50)
+            }
+
+            if showGuidebook {
+                ZStack {
+                    Color.black.opacity(0.6).edgesIgnoringSafeArea(.all)
+                    GuidebookView(
+                        chapterNumber: chapterNumber,
+                        onClose: { showGuidebook = false }
+                    )
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(50)
+            }
+
+            // --- 黑幕過場層 ---
             if showTransitionOverlay {
                 Color.black
                     .opacity(overlayOpacity)
@@ -219,230 +324,109 @@ struct MainMenuView: View {
                     .opacity(textOpacity)
                 }
             }
-
-        
-            // --- 教學引導 Overlay ---
+            // --- ✨ CORRECTED: The New Tutorial Layer System ---
             if showTutorial {
-                Color.black.opacity(dimBackground ? 0.5 : 0.0)
-                    .edgesIgnoringSafeArea(.all)
-                    .animation(.easeInOut(duration: 1.0), value: dimBackground)
-                    .allowsHitTesting(false)
-
-                GeometryReader { geo in
-                    VStack {
-                        Spacer()
-                        
-                        switch tutorialStep {
-                        case 0:
-                            // ✅ 新增 HStack 並加入 Spacer 來置中文字盒子
-                            HStack {
-                                Spacer()
-                                tutorialTextBox(
-                                    "🎉 歡迎來到《滿分上路》！\n一起闖關練習，向筆試滿分邁進吧！",
-                                    buttonTitle: "下一步"
-                                ) {
-                                    tutorialStep = 1
-                                }
-                                .frame(maxWidth: 500) // 💡 建議加上最大寬度，避免在大螢幕上文字太寬
-                                Spacer()
-                            }
-                            
-                        
-                        case 1:
-                            HStack { // 使用 HStack 來控制水平位置
-                                Spacer() // ✅ 在文字盒子前加入 Spacer，將它推向右邊
-                                tutorialTextBox("點擊畫面上的『第 1 關』圖示\n開始第一個挑戰吧！")
-                                    .offset(y: tutorialTextAtBottom ? geo.size.height/2 - 80 : 0)
-                                    .animation(.easeInOut(duration: 1.0), value: tutorialTextAtBottom)
-                                Spacer()
-                                // 可以再加一個 Spacer，讓它和前面的 Spacer 平均分配空間
-                            }
-                            .frame(width: geo.size.width) // 確保 HStack 填滿整個畫面的寬度
-                        
-                            if tutorialTextAtBottom {
-                                Image(systemName: "arrow.down")
-                                    .resizable()
-                                    .frame(width: 30, height: 50)
-                                    .foregroundColor(.white)
-                                    .offset(x: -geo.size.width * 0.3,
-                                            y: -geo.size.height * 0.35)
-                            }
-                            
-                        case 2:
-                            HStack { // ✅ 使用 HStack 來控制水平位置
-                                Spacer() // ✅ 在文字盒子前加入 Spacer，將它推向右邊
-                                tutorialTextBox("這裡會顯示關卡紀錄\n點『開始挑戰』就能進入遊戲。")
-                                    .offset(y: tutorialTextAtBottom ? geo.size.height/2 - 80 : 0)
-                                    .animation(.easeInOut(duration: 1.0), value: tutorialTextAtBottom)
-                                Spacer() // 可以再加一個 Spacer，讓它和前面的 Spacer 平均分配空間
-                            }
-                            .frame(width: geo.size.width) // 確保 HStack 填滿整個畫面的寬度
-                        
-                            if tutorialTextAtBottom {
-                                Image(systemName: "arrow.down")
-                                    .resizable()
-                                    .frame(width: 30, height: 50)
-                                    .foregroundColor(.white)
-                                    .offset(x: geo.size.width * 0.1
-                                            )
-                            }
-                        
-                        default:
-                            EmptyView()
-                        }
-                        
-                        Spacer()
-                    }
-                
-                }
-                    .transition(.opacity)
-                .onChange(of: tutorialStep) { newValue in
-                    if newValue == 1 || newValue == 2 {
-                        dimBackground = true
-                        tutorialTextAtBottom = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                            withAnimation {
-                                dimBackground = false
-                                tutorialTextAtBottom = true
-                            }
-                        }
-                    }
-                }
-            }
-            // --- ✨ 祝賀畫面 Overlay ---
-            if showCongrats {
-                Color.black.opacity(0.6)
-                    .edgesIgnoringSafeArea(.all)
-
-                VStack(spacing: 20) {
-                    if dataService.highestUnlockedStage == 2 {
-                        // 🎉 第一關
-                        Text("🎉 恭喜完成第 1 關！")
-                            .font(.custom("CEF Fonts CJK Mono", size: 26))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-
-                        Text("👏 繼續加油，挑戰更多關卡吧！")
-                            .font(.custom("CEF Fonts CJK Mono", size: 20))
-                            .foregroundColor(.yellow)
-
-                    } else {
-                        let (chapter, _) = dataService.chapterAndStageInChapter(for: dataService.highestUnlockedStage - 1)
-                        let totalChapters = dataService.chapterStageCounts.count
-
-                        if chapter == totalChapters {
-                            // 🎉 最終章特別祝賀
-                            Text("🏆 恭喜通過最終章！")
-                                .font(.custom("CEF Fonts CJK Mono", size: 26))
-                                .foregroundColor(.white)
-                                .multilineTextAlignment(.center)
-
-                            Text("🎉 你已經完成所有挑戰，太厲害了！")
-                                .font(.custom("CEF Fonts CJK Mono", size: 20))
-                                .foregroundColor(.yellow)
-
-                        } else {
-                            // 🎉 一般章節
-                            Text("🎉 恭喜完成第 \(chapter) 章！")
-                                .font(.custom("CEF Fonts CJK Mono", size: 26))
-                                .foregroundColor(.white)
-                                .multilineTextAlignment(.center)
-
-                            Text("👏 繼續加油，挑戰下一章吧！")
-                                .font(.custom("CEF Fonts CJK Mono", size: 20))
-                                .foregroundColor(.yellow)
-                        }
-                    }
-
-                    Button(action: { showCongrats = false }) {
-                        Text("繼續前進 🚀")
-                            .padding()
-                            .frame(maxWidth: 200)
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                    }
-                }
-                .padding()
-                .background(RoundedRectangle(cornerRadius: 20).fill(Color.black.opacity(0.7)))
-                .padding()
-                .transition(.scale.combined(with: .opacity))
-            }
-            if showSummary {
-                SummaryView(
-                    chapterNumber: chapterNumber,
-                    onClose: { showSummary = false }
+                TutorialOverlayView(
+                    showTutorial: $showTutorial,
+                    tutorialStep: $tutorialStep,
+                    highlights: tutorialHighlights
                 )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-            
-            // ✨ NEW: 導覽書畫面 Overlay
-            if showGuidebook {
-                GuidebookView(
-                    chapterNumber: chapterNumber,
-                    onClose: { showGuidebook = false }
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(100) // Ensure it's the topmost item
             }
             
         }
         .animation(.spring(), value: showingDetailForStage)
         .animation(.default, value: showGuidebook)
-        .animation(.default, value: showSummary) // 為 Overlay 加上動畫
+        .animation(.default, value: showSummary)
+        .onPreferenceChange(TutorialHighlightKey.self) { value in
+            self.tutorialHighlights = value
+        }
+        
         .onAppear {
-            if dataService.highestUnlockedStage <= 1 {
-                showTutorial = true
-            }
-
-            // ✅ 恭喜完成第 1 關（只顯示一次）
-            if dataService.highestUnlockedStage == 2 {
-                let shownFirst = UserDefaults.standard.bool(forKey: "shownFirstStageCongrats")
-                if !shownFirst {
-                    showCongrats = true
-                    UserDefaults.standard.set(true, forKey: "shownFirstStageCongrats")
-                }
-            }
-
-            // ✅ 恭喜完成某章最終關（只顯示一次）
-            let justUnlocked = dataService.highestUnlockedStage
-            let (chapter, stageInChapter) = dataService.chapterAndStageInChapter(for: justUnlocked - 1)
-
-            if stageInChapter == dataService.stagesInChapter(chapter) {
-                var shownChapters = UserDefaults.standard.array(forKey: "shownCongratsChapters") as? [Int] ?? []
-                if !shownChapters.contains(chapter) {
-                    showCongrats = true
-                    shownChapters.append(chapter)
-                    UserDefaults.standard.set(shownChapters, forKey: "shownCongratsChapters")
-                }
+            // Use your new `hasSeenTutorial` flag to check!
+            if !dataService.hasSeenTutorial && chapterNumber == 1 {
+                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    withAnimation {
+                       showTutorial = true
+                    }
+                 }
             }
         }
         .onChange(of: showTransitionOverlay) { newValue in
             isOverlayActive = newValue
         }
-        
     }
 
-    // --- ✨ 教學文字盒子元件 ---
+    // --- TopBar ---
     @ViewBuilder
-    private func tutorialTextBox(_ text: String, buttonTitle: String? = nil, action: (() -> Void)? = nil) -> some View {
-        VStack(spacing: 16) {
-            Text(text)
-                .font(.custom("CEF Fonts CJK Mono", size: 17))
+    private var topBar: some View {
+        ZStack {
+            Text("第 \(chapterNumber) 章")
+                .font(.custom("CEF Fonts CJK Mono", size: chapterTitleFontSize))
                 .foregroundColor(.white)
-                .multilineTextAlignment(.center)
+                .shadow(color: .black.opacity(0.3), radius: 5, y: 5)
+                .lineLimit(1)
 
-            if let buttonTitle = buttonTitle, let action = action {
-                Button(buttonTitle, action: action)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+            HStack {
+                Button(action: onBack) {
+                    ZStack {
+                        Circle().fill(Color.black.opacity(0.3)).shadow(radius: 5)
+                        Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 2).padding(4)
+                        Image(systemName: "arrow.backward")
+                            .font(.title3.weight(.bold))
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+                    .frame(width: 44, height: 44)
+                }
                 
+                Spacer()
+                
+                HStack(spacing: 20) {
+                    Button(action: {
+                        withAnimation {
+                            showGuidebook = false
+                            showSummary = true
+                        }
+                    }) {
+                        Image(systemName: "lightbulb.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(.yellow)
+                    }
+                    
+                    Button(action: {
+                        withAnimation {
+                            showSummary = false
+                            showGuidebook = true
+                        }
+                    }) {
+                        Image(systemName: "book.closed.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(Color.black.opacity(0.2))
+                            .clipShape(Circle())
+                    }
+                }
+                // ✨ NEW: 標記右上角按鈕區域為教學步驟 1 的高亮目標
+                .modifier(TutorialHighlightModifier(step: 1))
             }
         }
-        .padding()
+        .frame(height: 60)
+        .padding(.horizontal)
+        .background(.ultraThinMaterial.opacity(0.2))
     }
 }
+// ✨ NEW: 增加一個 if modifier 讓程式碼更簡潔
+extension View {
+    @ViewBuilder func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
+    }
+}
+
 // MARK: - ✨ NEW: 重點整理資料模型 (懶人包內容)
 struct SummaryContent: Identifiable {
     let id = UUID()
@@ -491,7 +475,7 @@ struct SummaryDataProvider {
             ]),
             SummarySection(heading: "特定行為罰款", icon: "dollarsign.circle", items: [
                 "選擇中題目只有300 600 900 1500 3000中其中一個 優先選擇",
-                "燈號違規: $600",
+                "壞燈違規: $600",
                 "橋上違規: $900",
                 "無牌駕駛: $5,000 至 $25,000"
             ])
@@ -542,6 +526,7 @@ struct SummaryDataProvider {
 
 
 // MARK: - ✨ NEW: 重點整理彈出視窗 (SummaryView)
+// 🔧 MODIFIED: 尺寸改為自適應，佔螢幕 80%
 struct SummaryView: View {
     let chapterNumber: Int
     let onClose: () -> Void
@@ -549,55 +534,57 @@ struct SummaryView: View {
     @State private var summary: SummaryContent?
     
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-                .onTapGesture(perform: onClose)
-            
-            VStack(spacing: 0) {
-                // 標題列
-                HStack {
-                    Text(summary?.title ?? "重點整理")
-                        .font(.custom("CEF Fonts CJK Mono", size: 22))
-                        .bold()
-                    Spacer()
-                    Button(action: onClose) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title)
-                            .foregroundColor(.gray.opacity(0.8))
-                    }
-                }
-                .padding()
-                // 🔧 MODIFIED: 使用可適應的系統灰色作為標題背景
-                .background(Color(UIColor.tertiarySystemBackground))
+        // ✨ 用 GeometryReader 包住來取得螢幕尺寸
+        GeometryReader { geometry in
+            ZStack {
+                Color.black.opacity(0.5)
+                    .ignoresSafeArea()
+                    .onTapGesture(perform: onClose)
                 
-                Divider()
-                
-                // 內容
-                if let summary = summary {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 20) {
-                            ForEach(summary.sections) { section in
-                                SummarySectionView(section: section)
-                            }
+                VStack(spacing: 0) {
+                    // 標題列
+                    HStack {
+                        Text(summary?.title ?? "重點整理")
+                            .font(.custom("CEF Fonts CJK Mono", size: 22))
+                            .bold()
+                        Spacer()
+                        Button(action: onClose) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title)
+                                .foregroundColor(.gray.opacity(0.8))
                         }
-                        .padding()
                     }
-                } else {
-                    // 如果沒有內容，顯示提示
-                    Spacer()
-                    Text("本章節暫無重點整理")
-                        .font(.custom("CEF Fonts CJK Mono", size: 18))
-                        .foregroundColor(.gray)
-                    Spacer()
+                    .padding()
+                    .background(Color(UIColor.tertiarySystemBackground))
+                    
+                    Divider()
+                    
+                    // 內容
+                    if let summary = summary {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 20) {
+                                ForEach(summary.sections) { section in
+                                    SummarySectionView(section: section)
+                                }
+                            }
+                            .padding()
+                        }
+                    } else {
+                        Spacer()
+                        Text("本章節暫無重點整理")
+                            .font(.custom("CEF Fonts CJK Mono", size: 18))
+                            .foregroundColor(.gray)
+                        Spacer()
+                    }
                 }
+                // ✨ 使用螢幕尺寸的 80% 作為 View 的大小
+                .frame(width: geometry.size.width * 0.9, height: geometry.size.height * 0.9)
+                .background(Color(UIColor.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 20)) // 使用 clipShape 效果更好
+                .shadow(radius: 20)
+                // ✨ 將 View 精準置中
+                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
             }
-            .frame(maxWidth: 350, maxHeight: .infinity)
-            .background(Color(UIColor.secondarySystemBackground))
-            .cornerRadius(20)
-            .shadow(radius: 20)
-            .padding(.horizontal)
-            .padding(.vertical, 40)
         }
         .onAppear {
             self.summary = SummaryDataProvider.getSummary(for: chapterNumber)
@@ -646,6 +633,7 @@ struct SummarySectionView: View {
 
 
 // MARK: - 導覽書主畫面 (GuidebookView)
+// 🔧 MODIFIED: 尺寸改為自適應，佔螢幕 80%
 struct GuidebookView: View {
     let chapterNumber: Int
     let onClose: () -> Void
@@ -666,65 +654,64 @@ struct GuidebookView: View {
     }
     
     var body: some View {
-        // 1. 用一個 ZStack 包住所有東西，來放置背景和卡片
-        ZStack {
-            // 半透明背景，點擊可關閉
-            Color.black.opacity(0.4)
-                .ignoresSafeArea()
-                .onTapGesture(perform: onClose)
-
-            // 導覽書主體 (NavigationStack)
-            NavigationStack {
-                ZStack {
-                    // 卡片的背景色
-                    Color(UIColor.secondarySystemBackground).ignoresSafeArea()
-                    
-                    VStack(spacing: 0) {
-                        ScrollView {
-                            LazyVStack(spacing: 0) {
-                                ForEach(filteredQuestions) { question in
-                                    GuidebookRowView(
-                                        question: question,
-                                        chapterNumber: self.chapterNumber,
-                                        onImageTap: { imageName in
-                                            withAnimation(.spring()) {
-                                                self.zoomedImageName = imageName
+        // ✨ 用 GeometryReader 包住來取得螢幕尺寸
+        GeometryReader { geometry in
+            ZStack {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .onTapGesture(perform: onClose)            // 導覽書主體 (NavigationStack)
+                NavigationStack {
+                    ZStack {
+                        // 卡片的背景色
+                        Color(UIColor.secondarySystemBackground).ignoresSafeArea()
+                        
+                        VStack(spacing: 0) {
+                            ScrollView {
+                                LazyVStack(spacing: 0) {
+                                    ForEach(filteredQuestions) { question in
+                                        GuidebookRowView(
+                                            question: question,
+                                            chapterNumber: self.chapterNumber,
+                                            onImageTap: { imageName in
+                                                withAnimation(.spring()) {
+                                                    self.zoomedImageName = imageName
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
-                    .navigationTitle("第 \(chapterNumber) 章 導覽書")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button(action: onClose) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.title3)
-                                    .foregroundColor(.gray)
+                        .navigationTitle("第 \(chapterNumber) 章 導覽書")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button(action: onClose) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.title3)
+                                        .foregroundColor(.gray)
+                                }
                             }
                         }
-                    }
-                    
-                    // 放大圖片的 Overlay
-                    if let imageName = zoomedImageName {
-                        ZoomedImageView(
-                            imageName: imageName,
-                            zoomedImageName: $zoomedImageName
-                        )
+                        
+                        // 放大圖片的 Overlay
+                        if let imageName = zoomedImageName {
+                            ZoomedImageView(
+                                imageName: imageName,
+                                zoomedImageName: $zoomedImageName
+                            )
+                        }
                     }
                 }
+                .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋問題或答案")
+                .onAppear(perform: loadQuestions)
+                // ✨ 使用螢幕尺寸的 80% 作為 View 的大小
+                .frame(width: geometry.size.width * 0.9, height: geometry.size.height * 0.9)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .shadow(radius: 15)
+                // ✨ 將 View 精準置中
+                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
             }
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋問題或答案")
-            .onAppear(perform: loadQuestions)
-            // 👇 2. 把圓角、陰影、邊距修飾符，加在 NavigationStack 的外面
-            .cornerRadius(20)
-            .shadow(radius: 15)
-            // MARK: 在這裡調整整個導覽書的大小
-            .padding(.horizontal, 75) // 👈 調整【寬度】，數字越小越寬
-            .padding(.vertical, 35)   // 👈 調整【高度】，數字越小越高
         }
     }
     
@@ -1059,6 +1046,7 @@ struct StageDetailView: View {
     let stageNumber: Int
     let chapterNumber: Int
     let result: StageResult?
+    let isTutorialActive: Bool // ✨ NEW: 接收教學狀態
     let onStart: () -> Void
     let onCancel: () -> Void
 
@@ -1126,6 +1114,11 @@ struct StageDetailView: View {
                             .bold().padding().frame(maxWidth: .infinity)
                             .background(Color.blue).cornerRadius(10)
                     }
+                    // ✨ NEW: 在教學模式下，標記開始按鈕
+                    .if(isTutorialActive) { view in
+                        view.modifier(TutorialHighlightModifier(step: 5))
+                    }
+                    
                 }
                 .foregroundColor(.white)
             }
@@ -1136,6 +1129,10 @@ struct StageDetailView: View {
                     .fill(Color(red: 240/255, green: 230/255, blue: 210/255))
                     .shadow(radius: 10)
             )
+            // ✨ NEW: 標記整個彈出視窗為教學步驟 3
+            .if(isTutorialActive) { view in
+                view.modifier(TutorialHighlightModifier(step: 4))
+            }
         }
     }
 }
@@ -1147,7 +1144,7 @@ struct InteractiveMenuPreview: View {
     
     var body: some View {
         MainMenuView(
-            chapterNumber: 5,
+            chapterNumber: 1,
             onStageSelect: { stageNumber in
                 print("Preview: Stage \(stageNumber) was selected.")
             },
@@ -1182,4 +1179,32 @@ struct InteractiveMenuPreview: View {
 
 #Preview("預設互動模式") {
     InteractiveMenuPreview()
+}
+// MARK: - ✨ NEW: 教學系統所需的 PreferenceKey 和 Modifier
+struct TutorialHighlightKey: PreferenceKey {
+    // 我們用一個字典來儲存每個教學步驟 (Int) 對應的 UI 元素位置 (CGRect)
+    typealias Value = [Int: CGRect]
+    
+    static var defaultValue: Value = [:]
+    
+    static func reduce(value: inout Value, nextValue: () -> Value) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}
+
+// 建立一個方便使用的 View Modifier，用來標記需要被教學系統高亮的 View
+struct TutorialHighlightModifier: ViewModifier {
+    let step: Int
+    
+    func body(content: Content) -> some View {
+        content
+            .background(
+                GeometryReader { geometry in
+                    Color.clear
+                        .preference(key: TutorialHighlightKey.self,
+                                    // 將這個 View 在全域座標系中的位置傳遞出去
+                                    value: [step: geometry.frame(in: .global)])
+                }
+            )
+    }
 }

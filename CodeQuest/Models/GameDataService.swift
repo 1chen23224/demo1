@@ -12,6 +12,14 @@ struct StageResult: Codable {
 // ======================================================
 
 class GameDataService: ObservableObject {
+    
+    // ✅ ADD THIS NEW FUNCTION
+    func markTutorialAsSeen() {
+        guard !hasSeenTutorial else { return } // If already seen, do nothing
+        hasSeenTutorial = true
+        saveData()
+        print("👍 Tutorial has been marked as seen and saved.")
+    }
     static let shared = GameDataService()
     
     private(set) var allQuestions: [QuizQuestion] = []
@@ -228,6 +236,7 @@ class GameDataService: ObservableObject {
         if let data = try? JSONEncoder().encode(wrongQuestionIDs) {
             UserDefaults.standard.set(data, forKey: wrongQuestionsKey)
         }
+        UserDefaults.standard.set(self.hasSeenTutorial, forKey: tutorialKey)
     }
     
     private func notifyUI() {

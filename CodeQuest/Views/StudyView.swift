@@ -149,7 +149,7 @@ struct WrongQuestionsReviewView: View {
                         Image(systemName: "trash")
                             .font(.title2) // 統一圖示大小
                             .foregroundColor(.red)
-                    }
+                    }.padding(.horizontal, 30)
                     
                     Button(action: showGuideAction) {
                         Image(systemName: "book.closed.fill")
