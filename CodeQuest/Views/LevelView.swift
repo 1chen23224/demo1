@@ -138,7 +138,7 @@ struct LevelView: View {
                     onImageTap: { openImageFromIcon() }
                 )
                 .padding(.horizontal)
-                .padding(.vertical, 20)
+                .padding(.vertical, 30)
             }
         
     
