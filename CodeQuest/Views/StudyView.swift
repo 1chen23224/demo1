@@ -8,7 +8,7 @@ struct StudyView: View {
     let onStartReview: ([QuizQuestion]) -> Void
     let onBack: () -> Void
     @State private var selectedReviewType = 0
-    @State private var showClearAlert = false
+
     // ✅ RESTORED: Add the missing @State variable here
     @State private var showGuideOverlay = true
 
@@ -50,41 +50,6 @@ struct StudyView: View {
             }
             .padding(.top, 20)
 
-            // 👉 右上角垃圾桶（只在錯題頁顯示）
-            if selectedReviewType == 0, !dataService.wrongQuestionIDs.isEmpty {
-                VStack {
-                    HStack {
-                        Spacer() // 把按鈕推到右邊
-                        Button {
-                            showClearAlert = true
-                        } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.black.opacity(0.3))
-                                    .shadow(radius: 5)
-                                Circle()
-                                    .strokeBorder(Color.white.opacity(0.4), lineWidth: 2)
-                                    .padding(4)
-                                Image(systemName: "trash")
-                                    .font(.title3.weight(.bold))
-                                    .foregroundColor(.red.opacity(0.9))
-                            }
-                            .frame(width: 50, height: 50)
-                        }
-                        .alert("確定要清除所有錯題嗎？", isPresented: $showClearAlert) {
-                            Button("取消", role: .cancel) {}
-                            Button("清除", role: .destructive) {
-                                GameDataService.shared.clearWrongQuestions()
-                            }
-                        } message: {
-                            Text("此操作無法復原，錯題紀錄將會消失。")
-                        }
-                        .padding(.trailing, 60)
-                        .padding(.top, 20)
-                    }
-                    Spacer()
-                }
-            }
             // ✨ NEW: 如果 showWrongQuestionsGuide 為 true，則顯示錯題導覽書
             if showWrongQuestionsGuide {
                 // 取得所有錯題
@@ -155,7 +120,9 @@ struct WrongQuestionsReviewView: View {
     let showGuideAction: () -> Void
     
     @State private var chapterPercentages: [Int: Double] = [1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0, 5: 1.0]
-    
+    // ✨ NEW: 將彈窗狀態移到這裡
+    @State private var showClearAlert = false
+
     private var totalQuestionsToReview: Int {
         var total = 0
         for (chapter, percentage) in chapterPercentages {
@@ -175,14 +142,20 @@ struct WrongQuestionsReviewView: View {
                 Spacer()
                 // 只有當有錯題時才顯示導覽書按鈕
                 if !dataService.wrongQuestionIDs.isEmpty {
+                    // ✨ NEW: 垃圾桶按鈕
+                    Button(role: .destructive) {
+                        showClearAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.title2) // 統一圖示大小
+                            .foregroundColor(.red)
+                    }
+                    
                     Button(action: showGuideAction) {
                         Image(systemName: "book.closed.fill")
                             .font(.title2)
                             .foregroundColor(.white)
                     }
-                    .padding(.trailing)
-                    .padding(.horizontal, -10)
-                    .padding(.vertical, -20)
                 }
             }
             
@@ -217,6 +190,15 @@ struct WrongQuestionsReviewView: View {
             .disabled(totalQuestionsToReview == 0) // 如果總數為 0，禁用按鈕
         }
         .padding()
+        // ✨ NEW: 將 .alert 彈窗修飾符加到這裡
+        .alert("確定要清除所有錯題嗎？", isPresented: $showClearAlert) {
+            Button("取消", role: .cancel) {}
+            Button("清除", role: .destructive) {
+                GameDataService.shared.clearWrongQuestions()
+            }
+        } message: {
+            Text("此操作無法復原，錯題紀錄將會消失。")
+        }
     }
     
     // ✨ [主要修改處] 改用 question.level 來判斷章節
