@@ -176,7 +176,7 @@ struct ChapterSelectionView: View {
                                 // .topLeading 會將圖片的左上角對齊容器的左上角
                                 // 您可以依據圖片的重點區域選擇不同的對齊方式
                                 // 例如 .top, .center, .bottomTrailing 等
-                                .frame(width: geo.size.width + 200, height: geo.size.height + 90, alignment: .topLeading)
+                                .frame(width: geo.size.width + 200, height: geo.size.height + 95, alignment: .topLeading)
                         )
                         .clipped() // 裁切掉超出螢幕範圍的部分
                         .ignoresSafeArea()
