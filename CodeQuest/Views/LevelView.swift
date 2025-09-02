@@ -589,6 +589,7 @@ struct ImagePopupView: View {
     var body: some View {
         // ✨ CHANGED: 簡化整體佈局，直接使用 ZStack 置中
         ZStack {
+            
             // 背景遮罩 (不變)
             Color.black.opacity(0.6)
                 .ignoresSafeArea()
@@ -668,7 +669,7 @@ struct ImagePopupView: View {
                     }
                 }
         }
-        .allowsHitTesting(false)
+        .allowsHitTesting(isVisible)
         .zIndex(3)
         // 讓彈窗的出現和消失有動畫效果
         .transition(.scale(scale: 0.8).combined(with: .opacity))
