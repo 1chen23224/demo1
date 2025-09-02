@@ -668,6 +668,7 @@ struct ImagePopupView: View {
                     }
                 }
         }
+        .allowsHitTesting(false)
         .zIndex(3)
         // 讓彈窗的出現和消失有動畫效果
         .transition(.scale(scale: 0.8).combined(with: .opacity))
