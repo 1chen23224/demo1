@@ -1,4 +1,249 @@
 import SwiftUI
+// ✨ NEW: 用於儲存單一筆畫的資料結構
+struct DrawingPath: Identifiable {
+    let id = UUID()
+    var points: [CGPoint]
+    var color: Color
+    var lineWidth: CGFloat
+}
+// MARK: - ✨ NEW: 核心繪圖畫布
+struct DrawingCanvasView: View {
+    @Binding var paths: [DrawingPath]
+    @Binding var currentPath: DrawingPath
+    
+    var body: some View {
+        Canvas { context, size in
+            // 繪製所有已完成的路徑
+            for path in paths {
+                var pathObject = Path()
+                pathObject.addLines(path.points)
+                context.stroke(pathObject, with: .color(path.color), lineWidth: path.lineWidth)
+            }
+            
+            // 繪製當前正在畫的路徑
+            var currentPathObject = Path()
+            currentPathObject.addLines(currentPath.points)
+            context.stroke(currentPathObject, with: .color(currentPath.color), lineWidth: currentPath.lineWidth)
+        }
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    currentPath.points.append(value.location)
+                }
+                .onEnded { value in
+                    // 當手指離開螢幕，將當前路徑存入陣列並重置
+                    paths.append(currentPath)
+                    currentPath = DrawingPath(points: [], color: currentPath.color, lineWidth: currentPath.lineWidth)
+                }
+        )
+    }
+}
+// MARK: - ✨ NEW: 整合式畫板教學視窗
+struct DrawingBoardView: View {
+    let chapterNumber: Int
+    let onClose: () -> Void
+    
+    // --- 畫板狀態 ---
+    @State private var allChapterImages: [String] = []
+    @State private var selectedImageName: String?
+    @State private var drawingPaths: [DrawingPath] = []
+    @State private var currentDrawingPath: DrawingPath
+    
+    // --- 工具列狀態 ---
+    @State private var selectedColor: Color = .red
+    @State private var lineWidth: CGFloat = 5.0
+    
+    // 引入 sizeClass 以便製作自適應 UI
+    @Environment(\.horizontalSizeClass) var sizeClass
+    
+    init(chapterNumber: Int, onClose: @escaping () -> Void) {
+        self.chapterNumber = chapterNumber
+        self.onClose = onClose
+        // 初始化 currentDrawingPath
+        _currentDrawingPath = State(initialValue: DrawingPath(points: [], color: .red, lineWidth: 5.0))
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // 背景遮罩
+                Color.black.opacity(0.6)
+                    .ignoresSafeArea()
+                    .onTapGesture(perform: onClose)
+                
+                // 主面板
+                VStack(spacing: 0) {
+                    // 標題列
+                    titleBar
+                    
+                    // 圖片選擇器
+                    imageSelector
+                    
+                    // 畫布區域
+                    canvasArea
+                    
+                    // 工具列
+                    toolsPanel
+                }
+                .frame(width: geometry.size.width * 0.95, height: geometry.size.height * 0.9)
+                .background(Color(UIColor.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .shadow(radius: 20)
+                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+            }
+        }
+        .onAppear(perform: loadChapterImages)
+        .onChange(of: selectedColor) { newColor in
+            currentDrawingPath.color = newColor
+        }
+        .onChange(of: lineWidth) { newWidth in
+            currentDrawingPath.lineWidth = newWidth
+        }
+    }
+    
+    // --- 子視圖 ---
+    
+    @ViewBuilder
+    private var titleBar: some View {
+        HStack {
+            Text("第 \(chapterNumber) 章 教學畫板")
+                .font(.custom("CEF Fonts CJK Mono", size: sizeClass == .regular ? 22 : 18))
+                .bold()
+            Spacer()
+            Button(action: onClose) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(sizeClass == .regular ? .title : .title2)
+                    .foregroundColor(.gray.opacity(0.8))
+            }
+        }
+        .padding()
+        .background(Color(UIColor.tertiarySystemBackground))
+    }
+    
+    @ViewBuilder
+    private var imageSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(allChapterImages, id: \.self) { imageName in
+                    Button(action: {
+                        selectedImageName = imageName
+                        clearDrawing() // 切換圖片時清空畫板
+                    }) {
+                        Image(imageName)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: sizeClass == .regular ? 80 : 60)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(selectedImageName == imageName ? Color.blue : Color.gray.opacity(0.5), lineWidth: selectedImageName == imageName ? 4 : 2)
+                            )
+                    }
+                }
+            }
+            .padding()
+        }
+        .background(Color(UIColor.secondarySystemBackground))
+    }
+    
+    @ViewBuilder
+    private var canvasArea: some View {
+        ZStack {
+            // 背景圖片
+            if let imageName = selectedImageName {
+                Image(imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .clipShape(Rectangle()) // 確保圖片在邊界內
+            } else {
+                // 沒有選擇圖片時的提示
+                VStack {
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.largeTitle)
+                    Text("請從上方選擇一張圖片開始教學")
+                        .font(.custom("CEF Fonts CJK Mono", size: 16))
+                        .padding(.top, 8)
+                }
+                .foregroundColor(.gray)
+            }
+            
+            // 繪圖層
+            DrawingCanvasView(paths: $drawingPaths, currentPath: $currentDrawingPath)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    @ViewBuilder
+    private var toolsPanel: some View {
+        let isIPad = sizeClass == .regular
+        
+        // 在 iPad 上使用 HStack, iPhone 上使用 VStack 以獲得更好佈局
+        Group {
+            if isIPad {
+                HStack(spacing: 20) { toolControls }
+            } else {
+                VStack(spacing: 10) { toolControls }
+            }
+        }
+        .padding()
+        .background(Color(UIColor.tertiarySystemBackground))
+    }
+    
+    @ViewBuilder
+    private var toolControls: some View {
+        // 顏色選擇器
+        ColorPicker("畫筆顏色", selection: $selectedColor, supportsOpacity: false)
+            .labelsHidden()
+
+        // 筆刷粗細
+        HStack {
+            Image(systemName: "scribble")
+            Slider(value: $lineWidth, in: 2...30)
+                .frame(maxWidth: 200)
+            Text("\(Int(lineWidth))")
+        }
+
+        // 橡皮擦按鈕
+        Button(action: setEraser) {
+            Label("橡皮擦", systemImage: "eraser.fill")
+        }
+        .buttonStyle(.bordered)
+        
+        // 清除按鈕
+        Button(action: clearDrawing) {
+            Label("全部清除", systemImage: "trash.fill")
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.red)
+    }
+    
+    // --- 邏輯函式 ---
+    
+    private func loadChapterImages() {
+        // 從 GameDataService 載入第二章所有帶有圖片的問題
+        let chapterQuestions = GameDataService.shared.allQuestions.filter {
+            $0.level == self.chapterNumber && $0.imageName != nil && !$0.imageName!.isEmpty
+        }
+        
+        // 取得所有不重複的圖片名稱
+        let imageNames = chapterQuestions.compactMap { $0.imageName }
+        self.allChapterImages = Array(Set(imageNames)).sorted() // 去重並排序
+        
+        // 預設選中第一張圖
+        if selectedImageName == nil {
+            self.selectedImageName = self.allChapterImages.first
+        }
+    }
+    
+    private func clearDrawing() {
+        drawingPaths.removeAll()
+    }
+    
+    private func setEraser() {
+        // 橡皮擦的原理就是用背景色來畫畫
+        selectedColor = Color(UIColor.systemBackground)
+    }
+}
 // MARK: - ✨ FINAL: The Bulletproof Tutorial Overlay
 struct TutorialOverlayView: View {
     @Binding var showTutorial: Bool
@@ -137,7 +382,8 @@ struct MainMenuView: View {
     @State private var showSummary = false
     @State private var showGuidebook = false
     
-    // ✨ NEW: 引入 sizeClass 以便製作自適應 UI
+    @State private var showDrawingBoard = false
+    // ✨ NEW: 新增這個狀態    // ✨ NEW: 引入 sizeClass 以便製作自適應 UI
     @Environment(\.horizontalSizeClass) var sizeClass
     
     let chapterNumber: Int
@@ -304,7 +550,15 @@ struct MainMenuView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(50)
             }
-
+            // --- ✨ NEW: 繪圖板彈出視窗 ---
+            if showDrawingBoard {
+                DrawingBoardView(
+                    chapterNumber: chapterNumber,
+                    onClose: { showDrawingBoard = false }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(60) // 確保它在其他視窗之上
+            }
             // --- 黑幕過場層 ---
             if showTransitionOverlay {
                 Color.black
@@ -382,9 +636,25 @@ struct MainMenuView: View {
                 Spacer()
                 
                 HStack(spacing: 20) {
+                    // --- ✨ NEW: 新增畫筆按鈕 (僅限第二章) ---
+                    if chapterNumber == 2 {
+                        Button(action: {
+                            withAnimation {
+                                showSummary = false
+                                showGuidebook = false
+                                showDrawingBoard = true
+                            }
+                        }) {
+                            Image(systemName: "paintbrush.pointed.fill")
+                                .font(.system(size: 28))
+                                .foregroundColor(.red)
+                        }
+                    }
+                    
                     Button(action: {
                         withAnimation {
                             showGuidebook = false
+                            showDrawingBoard = false // 確保關閉畫板
                             showSummary = true
                         }
                     }) {
@@ -396,6 +666,7 @@ struct MainMenuView: View {
                     Button(action: {
                         withAnimation {
                             showSummary = false
+                            showDrawingBoard = false // 確保關閉畫板
                             showGuidebook = true
                         }
                     }) {
@@ -1144,7 +1415,7 @@ struct InteractiveMenuPreview: View {
     
     var body: some View {
         MainMenuView(
-            chapterNumber: 1,
+            chapterNumber: 2,
             onStageSelect: { stageNumber in
                 print("Preview: Stage \(stageNumber) was selected.")
             },
