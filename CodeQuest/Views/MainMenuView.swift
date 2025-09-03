@@ -535,7 +535,7 @@ struct MainMenuView: View {
                         onClose: { showSummary = false }
                     )
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.opacity) // ✨ MODIFIED
                 .zIndex(50)
             }
 
@@ -547,7 +547,7 @@ struct MainMenuView: View {
                         onClose: { showGuidebook = false }
                     )
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.opacity) // ✨ MODIFIED
                 .zIndex(50)
             }
             // --- ✨ NEW: 繪圖板彈出視窗 ---
@@ -556,7 +556,7 @@ struct MainMenuView: View {
                     chapterNumber: chapterNumber,
                     onClose: { showDrawingBoard = false }
                 )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.opacity) // ✨ MODIFIED
                 .zIndex(60) // 確保它在其他視窗之上
             }
             // --- 黑幕過場層 ---
