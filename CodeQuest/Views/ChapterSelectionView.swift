@@ -357,13 +357,22 @@ struct ChapterSelectionView: View {
                 secretKeyInput = ""
             }
             
-            Button("解鎖") {
-                if secretKeyInput.trimmingCharacters(in: .whitespacesAndNewlines) == "cocoyyds" {
+            // ✨ MODIFIED: 將 "解鎖" 改為 "確定"，並加入新的條件判斷
+            Button("好Q") {
+                let input = secretKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                if input == "cocoyyds" {
+                    // 舊功能：解鎖所有關卡
                     dataService.unlockAllStages()
+                } else if input == "coco324" {
+                    // ✨ NEW: 新功能：呼叫重置資料的函式
+                    dataService.resetAllData()
                 }
+                
                 mapTapCount = 0
                 secretKeyInput = ""
             }
+            
         } message: {
             Text("連續點擊標題5次可呼喚可可。")
         }

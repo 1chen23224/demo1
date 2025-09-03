@@ -195,7 +195,42 @@ class GameDataService: ObservableObject {
         notifyUI()
         print("✅ 玩家進度已重置！")
     }
-
+    /// 清除所有儲存在 UserDefaults 的玩家資料，並重置 App 狀態回到初始狀態。
+    func resetAllData() {
+        // 1. 取得所有 UserDefaults 的 keys
+        let dictionary = UserDefaults.standard.dictionaryRepresentation()
+        
+        // 2. 遍歷所有 keys，移除跟我們 App 相關的資料
+        //    這樣做的好處是，未來即使新增了儲存項目，也不用回來修改這個函式。
+        dictionary.keys.forEach { key in
+            // 根據您 App 的儲存鍵，移除相關資料
+            // 以下是一些您可能用到的 key，您可以自行增減
+            if key == "highestUnlockedChapter" ||
+               key == "highestUnlockedStage" ||
+               key == "stageResults" ||
+               key == "hasSeenTutorial" {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+        
+        // 3. 🛑 最關鍵的一步：
+        //    手動將記憶體中的 @Published 變數重置為初始值。
+        //    這會立即觸發 SwiftUI 的畫面更新，讓玩家感覺 App 瞬間回到了全新狀態。
+        DispatchQueue.main.async {
+            // 假設初始值為第一章、第一關
+            self.highestUnlockedChapter = 1
+            self.highestUnlockedStage = 1
+            
+            // 假設 stageResults 是一個儲存成績的字典
+            // self.stageResults = [:] // 如果您有這個屬性，請取消註解
+            
+            // 假設 hasSeenTutorial 是一個布林值
+            // self.hasSeenTutorial = false // 如果您有這個屬性，請取消註解
+            
+            // 強制發布變更，確保所有訂閱此物件的 View 都會刷新
+            self.objectWillChange.send()
+        }
+    }
     func unlockAllStages() {
         var stageIndex = 1
         for (_, chapterSize) in chapterStageCounts.enumerated() {
