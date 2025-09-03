@@ -1,4 +1,7 @@
 import SwiftUI
+// In DrawingBoardView.swift, AFTER the main struct
+
+
 // ✨ NEW: 用於儲存單一筆畫的資料結構
 struct DrawingPath: Identifiable {
     let id = UUID()
@@ -38,14 +41,14 @@ struct DrawingCanvasView: View {
         )
     }
 }
-// MARK: - ✨ NEW: 整合式畫板教學視窗
+// MARK: - ✨ NEW: 整合式畫板教學視窗 (v2.0 - 支援問題詳情)
 struct DrawingBoardView: View {
     let chapterNumber: Int
     let onClose: () -> Void
     
+    // ------------------- 狀態屬性 (🔧 MODIFIED) -------------------
+    
     // --- 畫板狀態 ---
-    @State private var allChapterImages: [String] = []
-    @State private var selectedImageName: String?
     @State private var drawingPaths: [DrawingPath] = []
     @State private var currentDrawingPath: DrawingPath
     
@@ -53,6 +56,18 @@ struct DrawingBoardView: View {
     @State private var selectedColor: Color = .red
     @State private var lineWidth: CGFloat = 5.0
     
+    // --- ✨ NEW: 問題與圖片資料管理 ---
+    /// 將問題按圖片名稱分組
+    @State private var questionsByImage: [String: [QuizQuestion]] = [:]
+    /// 所有不重複的圖片名稱列表
+    @State private var allImageNames: [String] = []
+    /// 當前選中的圖片名稱
+    @State private var selectedImageName: String?
+    /// 當前選中圖片對應的所有問題
+    @State private var activeQuestionsForImage: [QuizQuestion] = []
+    /// 當前顯示的問題索引
+    @State private var currentQuestionIndex: Int = 0
+
     // 引入 sizeClass 以便製作自適應 UI
     @Environment(\.horizontalSizeClass) var sizeClass
     
@@ -73,38 +88,57 @@ struct DrawingBoardView: View {
                 
                 // 主面板
                 VStack(spacing: 0) {
-                    // 標題列
                     titleBar
-                    
-                    // 圖片選擇器
                     imageSelector
-                    
-                    // 畫布區域
                     canvasArea
                     
-                    // 工具列
+                    // --- ✨ NEW: 問題詳情面板 ---
+                    if !activeQuestionsForImage.isEmpty {
+                        ScrollView {
+                            QuestionDisplayView(
+                                questions: activeQuestionsForImage,
+                                questionIndex: $currentQuestionIndex
+                            )
+                            .padding()
+                        }
+                        .frame(maxHeight: sizeClass == .regular ? 220 : 180) // 限制高度
+                        .background(Color(UIColor.systemBackground))
+                    }
+                    
                     toolsPanel
                 }
                 .frame(width: geometry.size.width * 0.95, height: geometry.size.height * 0.9)
-                .background(Color(UIColor.systemBackground))
+                .background(Color(UIColor.tertiarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 20))
                 .shadow(radius: 20)
                 .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
             }
         }
-        .onAppear(perform: loadChapterImages)
+        .onAppear(perform: loadChapterData) // 🔧 MODIFIED
         .onChange(of: selectedColor) { newColor in
             currentDrawingPath.color = newColor
         }
         .onChange(of: lineWidth) { newWidth in
             currentDrawingPath.lineWidth = newWidth
         }
+        // --- ✨ NEW: 監聽圖片變化 ---
+        .onChange(of: selectedImageName) { _, newImageName in
+            guard let newImageName = newImageName,
+                  let questions = questionsByImage[newImageName] else {
+                activeQuestionsForImage = []
+                return
+            }
+            activeQuestionsForImage = questions
+            currentQuestionIndex = 0 // 每次切換圖片都從第一個問題開始
+            clearDrawing() // 切換圖片時清空畫板
+        }
     }
     
-    // --- 子視圖 ---
+    // ------------------- 子視圖 (保持不變) -------------------
     
     @ViewBuilder
     private var titleBar: some View {
+        // ... (這部分程式碼與之前相同，無需修改)
         HStack {
             Text("第 \(chapterNumber) 章 教學畫板")
                 .font(.custom("CEF Fonts CJK Mono", size: sizeClass == .regular ? 22 : 18))
@@ -122,12 +156,12 @@ struct DrawingBoardView: View {
     
     @ViewBuilder
     private var imageSelector: some View {
+        // ... (這部分程式碼與之前相同，只需將 allChapterImages 改為 allImageNames)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                ForEach(allChapterImages, id: \.self) { imageName in
+                ForEach(allImageNames, id: \.self) { imageName in
                     Button(action: {
                         selectedImageName = imageName
-                        clearDrawing() // 切換圖片時清空畫板
                     }) {
                         Image(imageName)
                             .resizable()
@@ -148,15 +182,14 @@ struct DrawingBoardView: View {
     
     @ViewBuilder
     private var canvasArea: some View {
+        // ... (這部分程式碼與之前相同，無需修改)
         ZStack {
-            // 背景圖片
             if let imageName = selectedImageName {
                 Image(imageName)
                     .resizable()
                     .scaledToFit()
-                    .clipShape(Rectangle()) // 確保圖片在邊界內
+                    .clipShape(Rectangle())
             } else {
-                // 沒有選擇圖片時的提示
                 VStack {
                     Image(systemName: "photo.on.rectangle.angled")
                         .font(.largeTitle)
@@ -166,8 +199,6 @@ struct DrawingBoardView: View {
                 }
                 .foregroundColor(.gray)
             }
-            
-            // 繪圖層
             DrawingCanvasView(paths: $drawingPaths, currentPath: $currentDrawingPath)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -175,9 +206,8 @@ struct DrawingBoardView: View {
     
     @ViewBuilder
     private var toolsPanel: some View {
+        // ... (這部分程式碼與之前相同，無需修改)
         let isIPad = sizeClass == .regular
-        
-        // 在 iPad 上使用 HStack, iPhone 上使用 VStack 以獲得更好佈局
         Group {
             if isIPad {
                 HStack(spacing: 20) { toolControls }
@@ -191,25 +221,19 @@ struct DrawingBoardView: View {
     
     @ViewBuilder
     private var toolControls: some View {
-        // 顏色選擇器
+        // ... (這部分程式碼與之前相同，無需修改)
         ColorPicker("畫筆顏色", selection: $selectedColor, supportsOpacity: false)
             .labelsHidden()
-
-        // 筆刷粗細
         HStack {
             Image(systemName: "scribble")
             Slider(value: $lineWidth, in: 2...30)
                 .frame(maxWidth: 200)
             Text("\(Int(lineWidth))")
         }
-
-        // 橡皮擦按鈕
         Button(action: setEraser) {
             Label("橡皮擦", systemImage: "eraser.fill")
         }
         .buttonStyle(.bordered)
-        
-        // 清除按鈕
         Button(action: clearDrawing) {
             Label("全部清除", systemImage: "trash.fill")
         }
@@ -217,21 +241,23 @@ struct DrawingBoardView: View {
         .tint(.red)
     }
     
-    // --- 邏輯函式 ---
+    // ------------------- 邏輯函式 (🔧 MODIFIED) -------------------
     
-    private func loadChapterImages() {
-        // 從 GameDataService 載入第二章所有帶有圖片的問題
+    // ✨ MODIFIED: 載入資料的邏輯已升級
+    private func loadChapterData() {
         let chapterQuestions = GameDataService.shared.allQuestions.filter {
             $0.level == self.chapterNumber && $0.imageName != nil && !$0.imageName!.isEmpty
         }
         
-        // 取得所有不重複的圖片名稱
-        let imageNames = chapterQuestions.compactMap { $0.imageName }
-        self.allChapterImages = Array(Set(imageNames)).sorted() // 去重並排序
+        // 使用 Swift 的 Dictionary(grouping:by:) 按圖片名稱將問題分組
+        self.questionsByImage = Dictionary(grouping: chapterQuestions, by: { $0.imageName! })
+        
+        // 獲取所有不重複的圖片名稱並排序
+        self.allImageNames = questionsByImage.keys.sorted()
         
         // 預設選中第一張圖
         if selectedImageName == nil {
-            self.selectedImageName = self.allChapterImages.first
+            self.selectedImageName = self.allImageNames.first
         }
     }
     
@@ -240,10 +266,89 @@ struct DrawingBoardView: View {
     }
     
     private func setEraser() {
-        // 橡皮擦的原理就是用背景色來畫畫
         selectedColor = Color(UIColor.systemBackground)
     }
 }
+
+
+// MARK: - ✨ NEW: 用於顯示單個問題詳情的輔助 View
+struct QuestionDetailRowView: View {
+    // ... (將第一步的程式碼貼在這裡)
+    let question: QuizQuestion
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(question.questionText)
+                .font(.custom("CEF Fonts CJK Mono", size: 16))
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+                .lineLimit(2)
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(question.options.filter { !$0.isEmpty }, id: \.self) { option in
+                    HStack {
+                        Image(systemName: option == question.correctAnswer ? "checkmark.circle.fill" : "circle")
+                            .foregroundColor(option == question.correctAnswer ? .green : .secondary)
+                        Text(option)
+                            .font(.custom("CEF Fonts CJK Mono", size: 15))
+                            .foregroundColor(option == question.correctAnswer ? .primary : .secondary)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(UIColor.secondarySystemBackground))
+        .cornerRadius(12)
+    }
+}
+
+
+// MARK: - ✨ NEW: 包含問題切換邏輯的容器 View
+struct QuestionDisplayView: View {
+    // ... (將第一步的程式碼貼在這裡)
+    let questions: [QuizQuestion]
+    @Binding var questionIndex: Int
+    
+    var body: some View {
+        VStack {
+            if questions.count > 1 {
+                HStack {
+                    Text("相關問題 \(questionIndex + 1) / \(questions.count)")
+                        .font(.custom("CEF Fonts CJK Mono", size: 14))
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                    
+                    Button {
+                        if questionIndex > 0 {
+                            questionIndex -= 1
+                        }
+                    } label: {
+                        Image(systemName: "chevron.left.circle.fill")
+                    }
+                    .disabled(questionIndex == 0)
+                    
+                    Button {
+                        if questionIndex < questions.count - 1 {
+                            questionIndex += 1
+                        }
+                    } label: {
+                        Image(systemName: "chevron.right.circle.fill")
+                    }
+                    .disabled(questionIndex == questions.count - 1)
+                }
+                .font(.title2)
+                .padding(.horizontal)
+            }
+            
+            QuestionDetailRowView(question: questions[questionIndex])
+                .id(questions[questionIndex].id)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                .animation(.easeInOut(duration: 0.2), value: questionIndex)
+        }
+    }
+}
+
 // MARK: - ✨ FINAL: The Bulletproof Tutorial Overlay
 struct TutorialOverlayView: View {
     @Binding var showTutorial: Bool
@@ -718,7 +823,7 @@ struct SummaryDataProvider {
     static let summaries: [SummaryContent] = [
         // 第 2 章
         // MARK: 🔧 MODIFIED: 第二章 - 整合您的最新小筆記
-        SummaryContent(chapterNumber: 2, title: "第二章 重點整理", sections: [
+        SummaryContent(chapterNumber: 2, title: "第2章 重點整理", sections: [
             SummarySection(heading: "基本行車及轉彎規則", icon: "arrow.triangle.swap", items: [
                 "**上落客/貨**: 應在道路 **左方** 進行 (左上右落)",
                 "**單行線轉彎**: **轉左靠左，轉右靠右**",
@@ -738,7 +843,7 @@ struct SummaryDataProvider {
         ]),
         
         // 第 3 章
-        SummaryContent(chapterNumber: 3, title: "第三章 重點整理", sections: [
+        SummaryContent(chapterNumber: 3, title: "第3章 重點整理", sections: [
             SummarySection(heading: "常見監禁/停牌時間", icon: "calendar", items: [
                 "一年至三年",
                 "兩個月至六個月",
@@ -753,7 +858,7 @@ struct SummaryDataProvider {
         ]),
         
         // MARK: 🔧 MODIFIED: 第四章終極整合版筆記
-        SummaryContent(chapterNumber: 4, title: "第四章 重點整理", sections: [
+        SummaryContent(chapterNumber: 4, title: "第4章 重點整理", sections: [
             SummarySection(heading: "罰款金額核心法則", icon: "key.fill", items: [
                 "筆試中，**固定金額罰款只有 $300, $600, $900, $1500, $3000 這五種**。",
                 "看到其他固定金額 (如$400, $500, $1000) 的選項基本可以**直接排除**！"
