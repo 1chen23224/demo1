@@ -67,7 +67,15 @@ struct LevelView: View {
     var body: some View {
         // ⭐️ 將 GeometryReader 作為最外層的視圖，獲取整個螢幕的真實尺寸
         GeometryReader { geometry in
-            
+            // vvvvvvv ✨ 請在這裡加上這段偵錯碼 vvvvvvv
+            let _ = {
+                print("--- LevelView body is rendering ---")
+                print("Current Stage: \(viewModel.currentStage)")
+                print("Is Quiz Complete? \(viewModel.isQuizComplete)") // <--- 最關鍵的日誌！
+                print("Is Game Over? \(viewModel.isGameOver)")
+                print("---------------------------------")
+            }()
+            // ^^^^^^^ ✨ 請在這裡加上這段偵錯碼 ^^^^^^^
             ZStack {
                 // --- 主要遊戲畫面 (天空 & 地面) ---
                 VStack(spacing: 0) {
@@ -134,7 +142,10 @@ struct LevelView: View {
                         .safeAreaInset(edge: .top) {
                             QuestionBar(
                                 text: viewModel.currentQuestion.questionText,
-                                hasImage: viewModel.currentQuestion.imageName != nil,
+                                // 舊的寫法：
+                                // hasImage: viewModel.currentQuestion.imageName != nil,
+                                // ✨ 新的寫法：
+                                imageName: viewModel.currentQuestion.imageName,
                                 shouldAnimateIcon: false,
                                 showHandHint: false,
                                 onImageTap: { openImageFromIcon() }
@@ -203,7 +214,11 @@ struct LevelView: View {
                             maxCombo: viewModel.maxComboAchieved,
                             correctlyAnswered: viewModel.correctlyAnsweredCount,
                             totalQuestions: viewModel.totalQuestions,
-                            backToMenuAction: { self.isGameActive = false }
+                            backToMenuAction: {
+                                viewModel.resetFlagsForNewGame() // ✨ 在返回主選單前重置
+                                self.isGameActive = false
+                            }
+                            
                         )
                         .transition(.opacity.animation(.easeIn(duration: 0.5)))
                     }
@@ -226,8 +241,15 @@ struct LevelView: View {
                 .frame(width: geometry.size.width, height: geometry.size.height)
             }
             .edgesIgnoringSafeArea(.all) // 確保 GeometryReader 佔滿整個螢幕
-            .onChange(of: viewModel.questionRefreshID) { handleNewQuestion() }
-            .onChange(of: viewModel.comboCount) { _, newComboCount in
+        // This handles changes AFTER the view has appeared
+        .onChange(of: viewModel.questionRefreshID) { _ in
+            handleNewQuestion()
+        }
+        // This handles the INITIAL case when the view first appears
+        .onAppear {
+            handleNewQuestion()
+        }
+            .onChange(of: viewModel.comboCount) { newComboCount in
                 if newComboCount > 1 {
                     self.autoCloseComboTask?.cancel()
                     withAnimation(.easeIn) {
@@ -306,18 +328,6 @@ struct LevelView: View {
             selectedOption = nil
             autoClosePopupTask?.cancel()
             glowingOption = nil
-            if let _ = viewModel.currentQuestion.imageName {
-                withAnimation(.spring()) {
-                    isImagePopupVisible = true
-                }
-                let task = DispatchWorkItem {
-                    withAnimation {
-                        isImagePopupVisible = false
-                    }
-                }
-                autoClosePopupTask = task
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: task)
-            }
         }
         
         private func nextTutorialStep() {
@@ -750,36 +760,32 @@ struct ImagePopupView: View {
         }
     }
     
-// 🔧 MODIFIED: 為 QuestionBar 加入自適應字體大小
+// 🔧 MODIFIED: 將「查看圖片」按鈕改為圖片預覽
 struct QuestionBar: View {
     let text: String
-    let hasImage: Bool
+    // ✨ STEP 1: 修改傳入的參數，從 Bool 改為可選的 String
+    let imageName: String?
     let shouldAnimateIcon: Bool
     let showHandHint: Bool
     let onImageTap: () -> Void
     
-    // ✨ STEP 1: 讓 QuestionBar 能夠偵測裝置類型
     @Environment(\.horizontalSizeClass) var sizeClass
     
     @State private var pressPulse = false
     @State private var breath = false
     @State private var showImageHint = false
     
-    // ✨ STEP 2: 定義一個自適應的字體大小變數
     private var questionFontSize: CGFloat {
-        // iPad (regular) 使用 32 號字，iPhone (compact) 保持 22 號
         return sizeClass == .regular ? 32 : 22
     }
     
     var body: some View {
         VStack(spacing: 8) {
-            // --- 題目區塊 ---
             HStack(alignment: .center, spacing: 12) {
                 
-                // 題目文字 (自動換行 + 捲動)
+                // 題目文字 (自動換行 + 捲動) - 這部分不變
                 ScrollView(.vertical, showsIndicators: false) {
                     Text(text)
-                        // ✨ STEP 3: 使用新的字體大小變數
                         .font(.custom("CEF Fonts CJK Mono", size: questionFontSize))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.leading)
@@ -787,55 +793,50 @@ struct QuestionBar: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.vertical, 4)
                 }
-                .frame(maxHeight: 120) // 可以考慮在 iPad 上稍微增加此高度，例如 150
+                .frame(maxHeight: 120)
                 .padding(.leading, 8)
                 
-                // 圖片按鈕 (不變)
-                if hasImage {
-                    // ... [這部分程式碼完全不變] ...
-                    ZStack(alignment: .topTrailing) {
-                        Button(action: {
-                            withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) { pressPulse = true }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                                withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) { pressPulse = false }
-                            }
-                            onImageTap()
-                            
-                            showImageHint = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
-                                withAnimation { showImageHint = false }
-                            }
-                        }) {
-                            VStack(spacing: 2) {
-                                Image(systemName: "photo.on.rectangle.angled")
-                                    .font(.system(size: 22, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(10)
-                                    .background(Circle().fill(Color.black.opacity(0.35)))
-                                    .shadow(color: .black.opacity(0.35), radius: 4, y: 3)
-                                    .scaleEffect(pressPulse ? 1.1 : (shouldAnimateIcon || breath ? 1.08 : 1.0))
-                                Text("查看圖片")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(.white.opacity(0.9))
-                            }
+                // ✨ STEP 2: 修改條件判斷，從 if hasImage 改為 if let
+                if let imageName = imageName {
+                    // ✨ STEP 3: 這是核心改動！用實際圖片預覽取代舊的圖示和文字
+                    Button(action: {
+                        // 按鈕的點擊動畫邏輯保持不變
+                        withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) { pressPulse = true }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) { pressPulse = false }
                         }
-                        .buttonStyle(.plain)
-                        .onAppear {
-                            if shouldAnimateIcon {
-                                withAnimation(.easeInOut(duration: 0.8).repeatCount(2, autoreverses: true)) {
-                                    breath = true
-                                }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                                    withAnimation(.easeOut(duration: 0.2)) { breath = false }
-                                }
-                            }
-                        }
+                        onImageTap()
                         
-                        if showHandHint {
-                            Text("👆")
-                                .font(.system(size: 20))
-                                .offset(x: 6, y: -18)
-                                .transition(.opacity.combined(with: .scale))
+                        showImageHint = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                            withAnimation { showImageHint = false }
+                        }
+                    }) {
+                        // --- 新的圖片預覽 UI ---
+                        Image(imageName) // 直接使用傳入的圖片名稱
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: sizeClass == .regular ? 200 : 110,
+                                   height: sizeClass == .regular ? 200 : 110) // 給定一個固定的縮圖大小
+                            .background(Color.black.opacity(0.3))
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.white.opacity(0.7), lineWidth: 2)
+                            )
+                            .shadow(color: .black.opacity(0.35), radius: 4, y: 3)
+                            .scaleEffect(pressPulse ? 1.1 : (shouldAnimateIcon || breath ? 1.08 : 1.0))
+                    }
+                    .buttonStyle(.plain)
+                    .onAppear {
+                        // 動畫邏輯保持不變
+                        if shouldAnimateIcon {
+                            withAnimation(.easeInOut(duration: 0.8).repeatCount(2, autoreverses: true)) {
+                                breath = true
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                withAnimation(.easeOut(duration: 0.2)) { breath = false }
+                            }
                         }
                     }
                 }
@@ -845,9 +846,9 @@ struct QuestionBar: View {
             .cornerRadius(20)
             .shadow(radius: 5)
             .frame(maxHeight: UIScreen.main.bounds.height * 0.3)
-            }
         }
     }
+}
     
     // ------------------ ProgressBar（不再顯示題數） ------------------
     

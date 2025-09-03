@@ -35,8 +35,8 @@ struct AlphaShape: Shape {
         guard let data = cgImage.dataProvider?.data,
               let ptr = CFDataGetBytePtr(data) else { return calculatedPath }
 
-        for y in stride(from: 0, to: height, by: 3) {
-            for x in stride(from: 0, to: width, by: 3) {
+        for y in stride(from: 0, to: height, by: 1) {
+            for x in stride(from: 0, to: width, by: 1) {
                 let pixelIndex = (y * width + x) * 4
                 let alpha = ptr[pixelIndex + 3]
                 if alpha > 0 {
@@ -141,15 +141,29 @@ struct ChapterMaskView: View {
                 }
             }
             
-            .onChange(of: isNew, initial: true) { _, newValue in
+            // This handles changes to 'isNew' AFTER the view has appeared
+            .onChange(of: isNew) { newValue in
                 if newValue {
+                    // Start pulsing animation
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                         withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                             isPulsing = true
                         }
                     }
                 } else {
+                    // Stop pulsing animation
                     withAnimation { isPulsing = false }
+                }
+            }
+            // This handles the 'initial' case when the view first appears
+            .onAppear {
+                // We check the initial state of 'isNew' here
+                if isNew {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                            isPulsing = true
+                        }
+                    }
                 }
             }
         }

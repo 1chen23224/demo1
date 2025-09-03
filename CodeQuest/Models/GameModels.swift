@@ -24,12 +24,6 @@ struct QuizQuestion: Identifiable {
     /// 如果讀不到 → 取第一個選項，若沒有選項則給空字串
     let correctAnswer: String
     
-    /// 題目關鍵字，空字串會轉成 nil (對應 CSV 的 col[9])
-    let keyword: String?
-    
-    /// 題目類型 (對應 CSV 的 col[10])
-    let type: Int
-    
     /// 額外資訊，代表題目所屬的不同 stage
     let stage: Int
 }

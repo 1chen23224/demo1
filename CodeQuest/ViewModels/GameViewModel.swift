@@ -79,7 +79,7 @@ class GameViewModel: ObservableObject {
                 questionID: 0, level: 0,
                 questionText: "所有題目已完成！",
                 imageName: nil, options: [], correctAnswer: "",
-                keyword: nil, type: 0, stage:0
+                stage:0
             )
         } else {
             guard !quizQuestions.isEmpty, currentQuestionIndex < quizQuestions.count else {
@@ -87,7 +87,7 @@ class GameViewModel: ObservableObject {
                     questionID: 0, level: 0,
                     questionText: "載入中...",
                     imageName: nil, options: [], correctAnswer: "",
-                    keyword: nil, type: 0, stage: 0
+                    stage: 0
             )
             }
             return quizQuestions[currentQuestionIndex]
@@ -154,7 +154,11 @@ class GameViewModel: ObservableObject {
         
         resetGameStates()
     }
-    
+    func resetFlagsForNewGame() {
+        print("🧹 GameViewModel: Resetting flags for new game.")
+        isGameOver = false
+        isQuizComplete = false
+    }
     func restartGame() {
         if currentStage == -1 { resetGameStates() }
         else { startGame(stage: self.currentStage) }

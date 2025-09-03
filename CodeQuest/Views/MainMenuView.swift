@@ -115,14 +115,14 @@ struct DrawingBoardView: View {
             }
         }
         .onAppear(perform: loadChapterData) // 🔧 MODIFIED
-        .onChange(of: selectedColor) { newColor in
+        .onChange(of: selectedColor) {newColor in
             currentDrawingPath.color = newColor
         }
         .onChange(of: lineWidth) { newWidth in
             currentDrawingPath.lineWidth = newWidth
         }
         // --- ✨ NEW: 監聽圖片變化 ---
-        .onChange(of: selectedImageName) { _, newImageName in
+        .onChange(of: selectedImageName) { newImageName in
             guard let newImageName = newImageName,
                   let questions = questionsByImage[newImageName] else {
                 activeQuestionsForImage = []
@@ -711,7 +711,7 @@ struct MainMenuView: View {
                  }
             }
         }
-        .onChange(of: showTransitionOverlay) { newValue in
+        .onChange(of: showTransitionOverlay) {newValue in
             isOverlayActive = newValue
         }
     }

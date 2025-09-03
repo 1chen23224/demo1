@@ -78,17 +78,16 @@ class GameDataService: ObservableObject {
         let rows = content.components(separatedBy: .newlines).dropFirst().filter { !$0.isEmpty }
         self.allQuestions = rows.compactMap { row -> QuizQuestion? in
             let cols = row.components(separatedBy: ",")
-            guard cols.count > 12 else { return nil }
+            guard cols.count > 10 else { return nil }
 
             let questionText = cols[2]
             let imageName = cols[3]
             
 
-            let stageString = cols[12].trimmingCharacters(in: .whitespacesAndNewlines)
+            let stageString = cols[10].trimmingCharacters(in: .whitespacesAndNewlines)
             let stage = Int(stageString) ?? 0
             let optionA = cols[4], optionB = cols[5], optionC = cols[6], optionD = cols[7]
             let correctAnswer = cols[8]
-            let keyword = cols[10]
 
             let options = [optionA, optionB, optionC, optionD]
 
@@ -99,8 +98,6 @@ class GameDataService: ObservableObject {
                 imageName: imageName.isEmpty ? nil : imageName,
                 options: options,
                 correctAnswer: correctAnswer,
-                keyword: keyword.isEmpty ? nil : keyword,
-                type: Int(cols[11]) ?? 0,
                 stage: stage   // ✅ 已經改成單一 stage
             )
         }

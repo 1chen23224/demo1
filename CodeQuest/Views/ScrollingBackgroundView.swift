@@ -36,7 +36,7 @@ struct ScrollingBackgroundView: View {
             }
             .clipped() // 確保超出部分被裁切
             .ignoresSafeArea()
-            .onChange(of: scrollTrigger) { _, _ in
+            .onChange(of: scrollTrigger) { _ in
                 guard scrollTrigger > 0 else { return }
 
                 withAnimation(.linear(duration: 0.5)) {
