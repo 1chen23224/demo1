@@ -1,7 +1,5 @@
 import SwiftUI
 // In DrawingBoardView.swift, AFTER the main struct
-
-
 // ✨ NEW: 用於儲存單一筆畫的資料結構
 struct DrawingPath: Identifiable {
     let id = UUID()
@@ -70,7 +68,7 @@ struct DrawingBoardView: View {
 
     // 引入 sizeClass 以便製作自適應 UI
     @Environment(\.horizontalSizeClass) var sizeClass
-    
+    @EnvironmentObject var languageManager: LanguageManager //
     init(chapterNumber: Int, onClose: @escaping () -> Void) {
         self.chapterNumber = chapterNumber
         self.onClose = onClose
@@ -140,7 +138,7 @@ struct DrawingBoardView: View {
     private var titleBar: some View {
         // ... (這部分程式碼與之前相同，無需修改)
         HStack {
-            Text("第 \(chapterNumber) 章 教學畫板")
+            Text(String(format: "chapter_board".localized(), chapterNumber))
                 .font(.custom("CEF Fonts CJK Mono", size: sizeClass == .regular ? 22 : 18))
                 .bold()
             Spacer()
@@ -193,7 +191,7 @@ struct DrawingBoardView: View {
                 VStack {
                     Image(systemName: "photo.on.rectangle.angled")
                         .font(.largeTitle)
-                    Text("請從上方選擇一張圖片開始教學")
+                    Text("select_an_img".localized())
                         .font(.custom("CEF Fonts CJK Mono", size: 16))
                         .padding(.top, 8)
                 }
@@ -222,7 +220,7 @@ struct DrawingBoardView: View {
     @ViewBuilder
     private var toolControls: some View {
         // ... (這部分程式碼與之前相同，無需修改)
-        ColorPicker("畫筆顏色", selection: $selectedColor, supportsOpacity: false)
+        ColorPicker("pen_color".localized(), selection: $selectedColor, supportsOpacity: false)
             .labelsHidden()
         HStack {
             Image(systemName: "scribble")
@@ -231,11 +229,11 @@ struct DrawingBoardView: View {
             Text("\(Int(lineWidth))")
         }
         Button(action: setEraser) {
-            Label("橡皮擦", systemImage: "eraser.fill")
+            Label("eraser".localized(), systemImage: "eraser.fill")
         }
         .buttonStyle(.bordered)
         Button(action: clearDrawing) {
-            Label("全部清除", systemImage: "trash.fill")
+            Label("all_clear".localized(), systemImage: "trash.fill")
         }
         .buttonStyle(.borderedProminent)
         .tint(.red)
@@ -275,23 +273,27 @@ struct DrawingBoardView: View {
 struct QuestionDetailRowView: View {
     // ... (將第一步的程式碼貼在這裡)
     let question: QuizQuestion
-    
+    @EnvironmentObject var languageManager: LanguageManager // ✅ 新增
+    private var langCode: String { // ✅ 新增
+        languageManager.currentLanguage
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(question.questionText)
+            Text(question.questionText(for: langCode))
                 .font(.custom("CEF Fonts CJK Mono", size: 16))
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
                 .lineLimit(2)
 
             VStack(alignment: .leading, spacing: 8) {
-                ForEach(question.options.filter { !$0.isEmpty }, id: \.self) { option in
+                ForEach(question.options(for: langCode).filter { !$0.isEmpty }, id: \.self) { option in
                     HStack {
-                        Image(systemName: option == question.correctAnswer ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(option == question.correctAnswer ? .green : .secondary)
+                        Image(systemName: option == question.correctAnswer(for: langCode) ? "checkmark.circle.fill" : "circle")
+                            .foregroundColor(option == question.correctAnswer(for: langCode) ? .green : .secondary)
                         Text(option)
                             .font(.custom("CEF Fonts CJK Mono", size: 15))
-                            .foregroundColor(option == question.correctAnswer ? .primary : .secondary)
+                            .foregroundColor(option == question.correctAnswer(for: langCode) ? .primary : .secondary)
                     }
                 }
             }
@@ -313,7 +315,9 @@ struct QuestionDisplayView: View {
         VStack {
             if questions.count > 1 {
                 HStack {
-                    Text("相關問題 \(questionIndex + 1) / \(questions.count)")
+                    Text(String(format: "related_question_progress".localized(),
+                                questionIndex + 1,
+                                questions.count))
                         .font(.custom("CEF Fonts CJK Mono", size: 14))
                         .fontWeight(.semibold)
                     
@@ -358,17 +362,17 @@ struct TutorialOverlayView: View {
     private var tutorialText: String {
         switch tutorialStep {
         case 0:
-            return "🎇 歡迎遊玩「滿分上路」 🚗 \n一起來通關練題往滿分前進吧。"
+            return "welcome_message".localized()
         case 1:
-            return "這裡有「重點整理」和「導覽書」，是你通關路上的好幫手！"
+            return "welcome_message2".localized()
         case 2:
-            return "完成關卡後，你可以在主選單的「錯題複習」中，重溫所有答錯的題目！"
+            return "welcome_message3".localized()
         case 3:
-            return "準備好了嗎？\n請點擊第一關，開始你的旅程！"
+            return "welcome_message4".localized()
         case 4:
-            return "這裡是關卡的詳細資訊，你可以在這裡看到最佳紀錄。"
+            return "welcome_message5".localized()
         case 5:
-            return "點擊「開始挑戰」，立刻進入關卡！"
+            return "welcome_message6".localized()
         default:
             return ""
         }
@@ -409,7 +413,7 @@ struct TutorialOverlayView: View {
                 
                 if showNextButton {
                     Button(action: advanceStep) {
-                        Text("下一步")
+                        Text("next".localized())
                             .font(.custom("CEF Fonts CJK Mono", size: 18))
                             .bold()
                             .foregroundColor(.blue)
@@ -675,8 +679,15 @@ struct MainMenuView: View {
                     let isBossStage = stageInChapter == GameDataService.shared.stagesInChapter(chapter)
                     
                     Text(isBossStage
-                         ? "-第 \(chapter) 章-\n\n\n  最終關"
-                         : "-第 \(chapter) 章-\n\n\n  第\(stageInChapter)關")
+                        // 如果是 Boss 關
+                        ? String(format: "boss_stage_title".localized(),
+                                 chapter)
+                        // 如果是普通關
+                        : String(format: "normal_stage_title".localized(),
+                                 chapter,
+                                 stageInChapter)
+                    )
+                    
                     .font(.custom("CEF Fonts CJK Mono", size: 30))
                     .fontWeight(.bold)
                     .foregroundColor(.white)
@@ -720,7 +731,7 @@ struct MainMenuView: View {
     @ViewBuilder
     private var topBar: some View {
         ZStack {
-            Text("第 \(chapterNumber) 章")
+            Text(String(format: "chapter_title".localized(), chapterNumber))
                 .font(.custom("CEF Fonts CJK Mono", size: chapterTitleFontSize))
                 .foregroundColor(.white)
                 .shadow(color: .black.opacity(0.3), radius: 5, y: 5)
@@ -820,83 +831,88 @@ struct SummarySection: Identifiable {
 
 // 存放所有懶人包內容的資料來源
 struct SummaryDataProvider {
-    static let summaries: [SummaryContent] = [
-        // 第 2 章
-        // MARK: 🔧 MODIFIED: 第二章 - 整合您的最新小筆記
-        SummaryContent(chapterNumber: 2, title: "第2章 重點整理", sections: [
-            SummarySection(heading: "基本行車及轉彎規則", icon: "arrow.triangle.swap", items: [
-                "**上落客/貨**: 應在道路 **左方** 進行 (左上右落)",
-                "**單行線轉彎**: **轉左靠左，轉右靠右**",
-                "**雙行線轉彎**: **轉左靠左，中線轉右**"
-            ]),
-            SummarySection(heading: "路權優先順序 (讓先權)", icon: "list.number", items: [
-                "**第1步: 看標誌** -> 有 **讓先(▽)符號** 的車輛 **最後行**",
-                "**第2步: 看動作** -> **左轉車** 擁有優先權",
-                "**第3步: 看位置** -> 讓 **左方車輛** 先行",
-                "**判斷流程 (綜合)**: 在無燈號路口，按 **B(左轉車) -> C(有讓先符號) -> A(無車路口)** 的逆時針方向判斷"
-            ]),
-            SummarySection(heading: "禁止事項提醒", icon: "xmark.octagon.fill", items: [
-                "**交匯處**: **不得** 停車、泊車、爬頭(超車)、掉頭、倒後",
-                "**黃虛線**: **可以** 上落客(停車)，但 **不能** 泊車",
-                "**黃實線**: **不得** 停車及泊車"
-            ])
-        ]),
-        
-        // 第 3 章
-        SummaryContent(chapterNumber: 3, title: "第3章 重點整理", sections: [
-            SummarySection(heading: "常見監禁/停牌時間", icon: "calendar", items: [
-                "一年至三年",
-                "兩個月至六個月",
-                "累犯 題目金額乘2"
-            ]),
-            SummarySection(heading: "特定行為罰款", icon: "dollarsign.circle", items: [
-                "選擇中題目只有300 600 900 1500 3000中其中一個 優先選擇",
-                "壞燈違規: $600",
-                "橋上違規: $900",
-                "無牌駕駛: $5,000 至 $25,000"
-            ])
-        ]),
-        
-        // MARK: 🔧 MODIFIED: 第四章終極整合版筆記
-        SummaryContent(chapterNumber: 4, title: "第4章 重點整理", sections: [
-            SummarySection(heading: "罰款金額核心法則", icon: "key.fill", items: [
-                "筆試中，**固定金額罰款只有 $300, $600, $900, $1500, $3000 這五種**。",
-                "看到其他固定金額 (如$400, $500, $1000) 的選項基本可以**直接排除**！"
-            ]),
-            SummarySection(heading: "五大罰款金額關鍵字全覽", icon: "list.bullet.rectangle.portrait.fill", items: [
-                "**$300 (輕微違規)**: 超載、開門、起步、死火(冇打燈)、單車載人、行人路推車、行人路行車、違規響按、突然減速、違規進入特定車道、牌照文件問題。",
-                "**$600 (中度違規)**: 裝卸貨物、不靠左停泊、頭盔、P牌、電單車違規(離手/並排/拖帶)、使用電話、影響環境(排煙/噪音)、未被超越時加速、不便他人超車。",
-                "**$900 (影響交通流程)**: 運載方式不當、倒車、轉彎、不靠左行駛、阻塞時不讓對頭車、在左方超車。",
-                "**$1500 (危險燈光)**: **遠光燈**使用不當。",
-                "**$3000 (嚴重違規)**: 運載超重 **超過20%**、運載危險品不符規定、安裝 **雷達干擾儀器**。"
-            ]),
-            SummarySection(heading: "快速記憶技巧 (口訣)", icon: "brain.head.profile", items: [
-                "選項同時有 3000 和其他四位數 -> 選 **$3000**",
-                "選項同時有 50, 600 -> 選 **$600**",
-                "選項最大是 1000 -> 選 **$600**",
-                "選項有 200, 400, 600, 900 -> 選 **$900**"
-            ]),
-            SummarySection(heading: "罰款組合 (範圍題)", icon: "arrow.up.arrow.down.circle", items: [
-                "**優先選擇**: $600 - $2,500",
-                "**優先選擇**: $2,000 - $10,000",
-                "**優先選擇**: $4,000 - $20,000",
-                "看到 **累犯** -> **$1,200 - $5,000**",
-                "引橋不讓 -> **$1,000 - $5,000**",
-                "注意 **前面 x 5 = 後面** 的規律 (如 $6000 - $30000)"
-            ]),
-            SummarySection(heading: "嚴重違規行為 (徒刑/重罰)", icon: "shield.lefthalf.filled.slash", items: [
-                "撞車後不顧而去: 最高 **3年** 徒刑",
-                "無牌駕駛: **6個月** 監禁 & **$10,000 - $50,000**",
-                "慣常酗酒/受藥物影響: **1-3年** 徒刑"
-            ])
-        ])
-    ]
 
+    // ✅ 新增這個靜態函式，它會在每次被呼叫時，建立一個全新的、本地化的陣列
+    static func loadLocalizedSummaries() -> [SummaryContent] {
+        // 把原本 static let 裡的所有內容，原封不動地搬到這裡面
+        let summaries: [SummaryContent] = [
+            // 第 2 章
+            SummaryContent(chapterNumber: 2, title: String(format: "summary_ch2_title_format".localized(), 2), sections: [
+                SummarySection(heading: "summary_ch2_sec1_heading".localized(), icon: "arrow.triangle.swap", items: [
+                    "summary_ch2_sec1_item1".localized(),
+                    "summary_ch2_sec1_item2".localized(),
+                    "summary_ch2_sec1_item3".localized()
+                ]),
+                SummarySection(heading: "summary_ch2_sec2_heading".localized(), icon: "list.number", items: [
+                    "summary_ch2_sec2_item1".localized(),
+                    "summary_ch2_sec2_item2".localized(),
+                    "summary_ch2_sec2_item3".localized(),
+                    "summary_ch2_sec2_item4".localized()
+                ]),
+                SummarySection(heading: "summary_ch2_sec3_heading".localized(), icon: "xmark.octagon.fill", items: [
+                    "summary_ch2_sec3_item1".localized(),
+                    "summary_ch2_sec3_item2".localized(),
+                    "summary_ch2_sec3_item3".localized()
+                ])
+            ]),
+            
+            // 第 3 章
+            SummaryContent(chapterNumber: 3, title: String(format: "summary_ch3_title_format".localized(), 3), sections: [
+                SummarySection(heading: "summary_ch3_sec1_heading".localized(), icon: "calendar", items: [
+                    "summary_ch3_sec1_item1".localized(),
+                    "summary_ch3_sec1_item2".localized(),
+                    "summary_ch3_sec1_item3".localized()
+                ]),
+                SummarySection(heading: "summary_ch3_sec2_heading".localized(), icon: "dollarsign.circle", items: [
+                    "summary_ch3_sec2_item1".localized(),
+                    "summary_ch3_sec2_item2".localized(),
+                    "summary_ch3_sec2_item3".localized(),
+                    "summary_ch3_sec2_item4".localized()
+                ])
+            ]),
+            
+            // 第 4 章
+            SummaryContent(chapterNumber: 4, title: String(format: "summary_ch4_title_format".localized(), 4), sections: [
+                SummarySection(heading: "summary_ch4_sec1_heading".localized(), icon: "key.fill", items: [
+                    "summary_ch4_sec1_item1".localized(),
+                    "summary_ch4_sec1_item2".localized()
+                ]),
+                SummarySection(heading: "summary_ch4_sec2_heading".localized(), icon: "list.bullet.rectangle.portrait.fill", items: [
+                    "summary_ch4_sec2_item1".localized(),
+                    "summary_ch4_sec2_item2".localized(),
+                    "summary_ch4_sec2_item3".localized(),
+                    "summary_ch4_sec2_item4".localized(),
+                    "summary_ch4_sec2_item5".localized()
+                ]),
+                SummarySection(heading: "summary_ch4_sec3_heading".localized(), icon: "brain.head.profile", items: [
+                    "summary_ch4_sec3_item1".localized(),
+                    "summary_ch4_sec3_item2".localized(),
+                    "summary_ch4_sec3_item3".localized(),
+                    "summary_ch4_sec3_item4".localized()
+                ]),
+                SummarySection(heading: "summary_ch4_sec4_heading".localized(), icon: "arrow.up.arrow.down.circle", items: [
+                    "summary_ch4_sec4_item1".localized(),
+                    "summary_ch4_sec4_item2".localized(),
+                    "summary_ch4_sec4_item3".localized(),
+                    "summary_ch4_sec4_item4".localized(),
+                    "summary_ch4_sec4_item5".localized(),
+                    "summary_ch4_sec4_item6".localized()
+                ]),
+                SummarySection(heading: "summary_ch4_sec5_heading".localized(), icon: "shield.lefthalf.filled.slash", items: [
+                    "summary_ch4_sec5_item1".localized(),
+                    "summary_ch4_sec5_item2".localized(),
+                    "summary_ch4_sec5_item3".localized()
+                ])
+            ])
+        ]
+        return summaries
+    }
 
-    
-    // 根據章節號碼查找對應的懶人包
+    // ✅ 修改這個函式，讓它先呼叫載入函式，再進行查找
     static func getSummary(for chapter: Int) -> SummaryContent? {
-        return summaries.first { $0.chapterNumber == chapter }
+        // 每次查找時，都先取得最新的、完整本地化的列表
+        let localizedSummaries = loadLocalizedSummaries()
+        return localizedSummaries.first { $0.chapterNumber == chapter }
     }
 }
 
@@ -920,7 +936,7 @@ struct SummaryView: View {
                 VStack(spacing: 0) {
                     // 標題列
                     HStack {
-                        Text(summary?.title ?? "重點整理")
+                        Text(summary?.title ?? "summary".localized())
                             .font(.custom("CEF Fonts CJK Mono", size: 22))
                             .bold()
                         Spacer()
@@ -947,7 +963,7 @@ struct SummaryView: View {
                         }
                     } else {
                         Spacer()
-                        Text("本章節暫無重點整理")
+                        Text("no_summary".localized())
                             .font(.custom("CEF Fonts CJK Mono", size: 18))
                             .foregroundColor(.gray)
                         Spacer()
@@ -1017,14 +1033,20 @@ struct GuidebookView: View {
     @State private var allQuestions: [QuizQuestion] = []
     @State private var zoomedImageName: String? = nil
     @State private var searchText = ""
-    
+    @EnvironmentObject var languageManager: LanguageManager // ✅ 新增
+
+    private var langCode: String { // ✅ 新增
+        languageManager.currentLanguage
+    }
+
     private var filteredQuestions: [QuizQuestion] {
         if searchText.isEmpty {
             return allQuestions
         } else {
             return allQuestions.filter {
-                $0.questionText.localizedCaseInsensitiveContains(searchText) ||
-                $0.correctAnswer.localizedCaseInsensitiveContains(searchText)
+                // 🔧 更改：搜尋時也使用多語言函式
+                $0.questionText(for: langCode).localizedCaseInsensitiveContains(searchText) ||
+                $0.correctAnswer(for: langCode).localizedCaseInsensitiveContains(searchText)
             }
         }
     }
@@ -1058,7 +1080,7 @@ struct GuidebookView: View {
                                 }
                             }
                         }
-                        .navigationTitle("第 \(chapterNumber) 章 導覽書")
+                        .navigationTitle(String(format: "chapter_guidebook_title".localized(), chapterNumber))
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
                             ToolbarItem(placement: .navigationBarTrailing) {
@@ -1079,7 +1101,7 @@ struct GuidebookView: View {
                         }
                     }
                 }
-                .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋問題或答案")
+                .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search".localized())
                 .onAppear(perform: loadQuestions)
                 // ✨ 使用螢幕尺寸的 80% 作為 View 的大小
                 .frame(width: geometry.size.width * 0.9, height: geometry.size.height * 0.9)
@@ -1104,6 +1126,10 @@ struct GuidebookRowView: View {
     let onImageTap: (String) -> Void
     
     @State private var isExpanded = false
+    @EnvironmentObject var languageManager: LanguageManager // ✅ 新增
+    private var langCode: String { // ✅ 新增
+        languageManager.currentLanguage
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1136,11 +1162,13 @@ struct GuidebookRowView: View {
                 
                 // 中間的問題與答案
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(question.questionText)
+                    // 🔧 更改：使用多語言函式
+                    Text(question.questionText(for: langCode))
                         .font(.custom("CEF Fonts CJK Mono", size: 15))
                         .foregroundColor(.secondary)
-                    
-                    Text(question.correctAnswer)
+                
+                    // 🔧 更改：使用多語言函式
+                    Text(question.correctAnswer(for: langCode))
                         .font(.custom("CEF Fonts CJK Mono", size: 17))
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
@@ -1185,11 +1213,13 @@ struct GuidebookRowView: View {
                 
                 // 中間的題目與答案
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(question.questionText)
+                    // 🔧 更改：使用多語言函式
+                    Text(question.questionText(for: langCode))
                         .font(.custom("CEF Fonts CJK Mono", size: 15))
                         .foregroundColor(.secondary)
-                    
-                    Text(question.correctAnswer)
+                
+                    // 🔧 更改：使用多語言函式
+                    Text(question.correctAnswer(for: langCode))
                         .font(.custom("CEF Fonts CJK Mono", size: 18))
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
@@ -1221,9 +1251,9 @@ struct GuidebookRowView: View {
     @ViewBuilder
     private var optionsView: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ForEach(question.options.filter { !$0.isEmpty }, id: \.self) { option in
+            ForEach(question.options(for: langCode).filter { !$0.isEmpty }, id: \.self) { option in
                 HStack(spacing: 12) {
-                    if option == question.correctAnswer {
+                    if option == question.correctAnswer(for: langCode) {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
                             .font(.headline)
@@ -1235,7 +1265,7 @@ struct GuidebookRowView: View {
                     
                     Text(option)
                         .font(.custom("CEF Fonts CJK Mono", size: 16))
-                        .fontWeight(option == question.correctAnswer ? .bold : .regular)
+                        .fontWeight(option == question.correctAnswer(for: langCode) ? .bold : .regular)
                 }
             }
         }
@@ -1402,8 +1432,12 @@ struct StageIconView: View {
                 }
 
                 Text(isBossStage
-                     ? "最終關"
-                     : "第\(relativeStage)關")
+                     // 如果是 Boss 關，直接用 "stage_final" Key
+                     ? "stage_final".localized()
+                     // 如果是普通關，用 "stage_with_number" Key 並傳入參數
+                     : String(format: "stage_with_number".localized(), relativeStage)
+                )
+                
                     .font(.custom("CEF Fonts CJK Mono", size: 16))
                     .fontWeight(.bold)
                     .foregroundColor(.white)
@@ -1451,7 +1485,10 @@ struct StageDetailView: View {
             Color.black.opacity(0.5).edgesIgnoringSafeArea(.all).onTapGesture(perform: onCancel)
 
             VStack(spacing: 15) {
-                Text(isBossStage ? "最終關" : "第 \(relativeStage) 關")
+                Text(isBossStage
+                     ? "stage_final".localized()
+                     : String(format: "stage_with_number".localized(), relativeStage)
+                )
                     .font(.custom("CEF Fonts CJK Mono", size: 30))
                     .bold()
                     .foregroundColor(textColor)
@@ -1460,15 +1497,17 @@ struct StageDetailView: View {
 
                 if let res = result {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("👑 最高紀錄").font(.custom("CEF Fonts CJK Mono", size: 20)).bold()
-                        Text("評價: \(res.evaluation)")
-                        Text("最高連對: \(res.maxCombo)")
-                        Text("答對題數: \(res.correctlyAnswered) / \(res.totalQuestions)")
+                        Text("record_title".localized())
+                            .font(.custom("CEF Fonts CJK Mono", size: 20))
+                            .bold()
+                        Text(String(format: "record_evaluation".localized(), res.evaluation))
+                        Text(String(format: "record_max_combo".localized(), res.maxCombo))
+                        Text(String(format: "record_correct_questions".localized(), res.correctlyAnswered, res.totalQuestions))
                     }
                     .font(.custom("CEF Fonts CJK Mono", size: 18))
                     .foregroundColor(textColor)
                 } else {
-                    Text("尚未挑戰")
+                    Text("no_record".localized())
                         .font(.custom("CEF Fonts CJK Mono", size: 22))
                         .foregroundColor(.gray)
                         .padding(.vertical, 30)
@@ -1478,14 +1517,14 @@ struct StageDetailView: View {
 
                 HStack(spacing: 15) {
                     Button(action: onCancel) {
-                        Text("取消")
+                        Text("cancel".localized())
                             .font(.custom("CEF Fonts CJK Mono", size: 16))
                             .bold().padding().frame(maxWidth: .infinity)
                             .background(Color.gray.opacity(0.3)).cornerRadius(10)
                     }
 
                     Button(action: onStart) {
-                        Text("開始挑戰")
+                        Text("game_start".localized())
                             .font(.custom("CEF Fonts CJK Mono", size: 16))
                             .bold().padding().frame(maxWidth: .infinity)
                             .background(Color.blue).cornerRadius(10)

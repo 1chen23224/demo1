@@ -78,32 +78,61 @@ class GameDataService: ObservableObject {
         let rows = content.components(separatedBy: .newlines).dropFirst().filter { !$0.isEmpty }
         self.allQuestions = rows.compactMap { row -> QuizQuestion? in
             let cols = row.components(separatedBy: ",")
-            guard cols.count > 10 else { return nil }
+            // ✅ 確保 CSV 至少有 29 欄 (索引到 28)，以支援簡體中文
+            guard cols.count > 28 else { return nil }
 
-            let questionText = cols[2]
-            let imageName = cols[3]
+            // --- 中文資料 ---
+            let questionText_zh = cols[2]
+            let options_zh = [cols[4], cols[5], cols[6], cols[7]]
+            let correctAnswer_zh = cols[8]
             
+            // --- 英文資料 ---
+            let questionText_en = cols[11]
+            let options_en = [cols[12], cols[13], cols[14], cols[15]]
+            let correctAnswer_en = cols[16]
 
+            // --- 葡文資料 ---
+            let questionText_pt = cols[17]
+            let options_pt = [cols[18], cols[19], cols[20], cols[21]]
+            let correctAnswer_pt = cols[22]
+
+            // --- 簡體中文資料 (新增) ---
+            let questionText_zh_hans = cols[23]
+            let options_zh_hans = [cols[24], cols[25], cols[26], cols[27]]
+            let correctAnswer_zh_hans = cols[28] // 假設答案在欄位 28
+
+            // --- 通用資料 ---
+            let imageName = cols[3]
             let stageString = cols[10].trimmingCharacters(in: .whitespacesAndNewlines)
             let stage = Int(stageString) ?? 0
-            let optionA = cols[4], optionB = cols[5], optionC = cols[6], optionD = cols[7]
-            let correctAnswer = cols[8]
-
-            let options = [optionA, optionB, optionC, optionD]
 
             return QuizQuestion(
                 questionID: Int(cols[0]) ?? 0,
                 level: Int(cols[1]) ?? 0,
-                questionText: questionText,
                 imageName: imageName.isEmpty ? nil : imageName,
-                options: options,
-                correctAnswer: correctAnswer,
-                stage: stage   // ✅ 已經改成單一 stage
+                stage: stage,
+                // ✅ 填充新的多語言 Dictionary
+                questionText: [
+                    "zh-Hant": questionText_zh,
+                    "en": questionText_en,
+                    "pt-PT": questionText_pt,
+                    "zh-Hans": questionText_zh_hans // 新增簡體中文
+                ],
+                options: [
+                    "zh-Hant": options_zh,
+                    "en": options_en,
+                    "pt-PT": options_pt,
+                    "zh-Hans": options_zh_hans // 新增簡體中文
+                ],
+                correctAnswer: [
+                    "zh-Hant": correctAnswer_zh,
+                    "en": correctAnswer_en,
+                    "pt-PT": correctAnswer_pt,
+                    "zh-Hans": correctAnswer_zh_hans // 新增簡體中文
+                ]
             )
         }
-
     }
-
     // ======================================================
     // MARK: - 關卡工具
     // ======================================================

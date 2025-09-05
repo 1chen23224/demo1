@@ -1,23 +1,20 @@
 import SwiftUI
 
-// MARK: - 主視圖 (StudyView)
 struct StudyView: View {
+    @EnvironmentObject var languageManager: LanguageManager
     @ObservedObject private var dataService = GameDataService.shared
     @StateObject private var viewModel = GameViewModel()
-    
+
+    let initialTab: Int
     let onStartReview: ([QuizQuestion]) -> Void
     let onBack: () -> Void
-    @State private var selectedReviewType = 0
-
-    // ✅ RESTORED: Add the missing @State variable here
+    
     @State private var showGuideOverlay = true
-
-    // ✨ NEW: 用於控制錯題導覽書的顯示狀態
     @State private var showWrongQuestionsGuide = false
     
     var body: some View {
         ZStack {
-            // 🔹 背景 & 內容
+            // 背景
             GeometryReader { geo in
                 ZStack {
                     Color.black.ignoresSafeArea()
@@ -29,54 +26,47 @@ struct StudyView: View {
                         .ignoresSafeArea()
                 }
             }
-
             
             VStack(spacing: 20) {
-                TabView(selection: $selectedReviewType) {
+                if initialTab == 0 {
                     WrongQuestionsReviewView(
                         allQuestions: viewModel.allQuestions,
                         onStartReview: onStartReview,
-                        showGuideAction: { showWrongQuestionsGuide = true } // ✨ NEW: 傳入觸發 Action
+                        showGuideAction: { showWrongQuestionsGuide = true }
                     )
-                    .tag(0)
-
+                } else {
                     AllQuestionsReviewView(
                         allQuestions: viewModel.allQuestions,
                         onStartReview: onStartReview
                     )
-                    .tag(1)
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
             }
             .padding(.top, 20)
-
-            // ✨ NEW: 如果 showWrongQuestionsGuide 為 true，則顯示錯題導覽書
+            
+            // 錯題導覽書
             if showWrongQuestionsGuide {
-                // 取得所有錯題
                 let wrongQuestions = viewModel.allQuestions.filter {
                     dataService.wrongQuestionIDs.contains($0.questionID)
                 }
                 
                 ReviewGuidebookView(
-                    title: "錯題導覽書",
+                    title: "error_book".localized(),
                     questions: wrongQuestions,
                     onClose: { showWrongQuestionsGuide = false }
                 )
             }
             
-            // 👉 第一次進來的提示 Overlay
-            if showGuideOverlay {
-                // 背景半透明，但不擋觸控
+            // 第一次進來的提示（僅錯題複習需要）
+            if showGuideOverlay && initialTab == 0 {
                 Color.black.opacity(0.6)
                     .edgesIgnoringSafeArea(.all)
                     .allowsHitTesting(false)
                 
                 VStack(spacing: 20) {
-                    Text("提示")
-                        .font(.title)
-                        .bold()
+                    Text("tips".localized())
+                        .font(.title).bold()
                         .foregroundColor(.white)
-                    Text("你可以向右滑動切換到『總複習』頁面")
+                    Text("tips_1".localized())
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .padding()
@@ -86,10 +76,8 @@ struct StudyView: View {
                         .foregroundColor(.yellow)
                         .padding(.top, 10)
                     
-                    Button("我知道了") {
-                        withAnimation {
-                            showGuideOverlay = false
-                        }
+                    Button("tips_2".localized()) {
+                        withAnimation { showGuideOverlay = false }
                         UserDefaults.standard.set(true, forKey: "hasSeenStudyGuide")
                     }
                     .padding()
@@ -98,7 +86,7 @@ struct StudyView: View {
                     .cornerRadius(12)
                 }
                 .padding()
-                .zIndex(1) // 確保提示在最上層
+                .zIndex(1)
             }
         }
         .onAppear {
@@ -137,7 +125,7 @@ struct WrongQuestionsReviewView: View {
             // ✨ NEW: 標題和導覽書按鈕
             HStack {
                 Spacer()
-                Text("錯題重溫")
+                Text("wrong_review".localized())
                     .font(.custom("CEF Fonts CJK Mono", size: 32)).bold().foregroundColor(.white)
                 Spacer()
                 // 只有當有錯題時才顯示導覽書按鈕
@@ -164,7 +152,7 @@ struct WrongQuestionsReviewView: View {
                 // ✨ [修正] 現在 isChapterUnlocked 應該由 dataService 判斷
                 if dataService.isChapterUnlocked(chapter) && !wrongQuestionsInChapter.isEmpty {
                     ReviewChapterRow(
-                        title: "第 \(chapter) 章",
+                        title: String(format: "chapter_title".localized(), chapter),
                         totalCount: wrongQuestionsInChapter.count,
                         percentage: Binding(
                             get: { self.chapterPercentages[chapter, default: 1.0] },
@@ -174,7 +162,7 @@ struct WrongQuestionsReviewView: View {
                 }
             }
             Spacer()
-            Button("建立錯題重溫關卡") {
+            Button("wrong_play".localized()) {
                 var reviewQuestions: [QuizQuestion] = []
                 for (chapter, percentage) in chapterPercentages {
                     let wrongQuestions = getWrongQuestions(for: chapter)
@@ -191,13 +179,13 @@ struct WrongQuestionsReviewView: View {
         }
         .padding()
         // ✨ NEW: 將 .alert 彈窗修飾符加到這裡
-        .alert("確定要清除所有錯題嗎？", isPresented: $showClearAlert) {
-            Button("取消", role: .cancel) {}
-            Button("清除", role: .destructive) {
+        .alert("wrong_clear".localized(), isPresented: $showClearAlert) {
+            Button("cancel".localized(), role: .cancel) {}
+            Button("clear".localized(), role: .destructive) {
                 GameDataService.shared.clearWrongQuestions()
             }
         } message: {
-            Text("此操作無法復原，錯題紀錄將會消失。")
+            Text("wrong_alert".localized())
         }
     }
     
@@ -232,13 +220,13 @@ struct AllQuestionsReviewView: View {
 
     var body: some View {
         VStack(spacing: 15) {
-            Text("總複習").font(.custom("CEF Fonts CJK Mono", size: 32)).bold().foregroundColor(.white)
+            Text("review".localized()).font(.custom("CEF Fonts CJK Mono", size: 32)).bold().foregroundColor(.white)
             
             ForEach(1...5, id: \.self) { chapter in
                 let questionsInChapter = getQuestions(for: chapter)
                 if dataService.isChapterUnlocked(chapter) && !questionsInChapter.isEmpty {
                     ReviewChapterRow(
-                        title: "第 \(chapter) 章",
+                        title: String(format: "chapter_title".localized(), chapter),
                         totalCount: questionsInChapter.count,
                         percentage: Binding(
                             get: { self.chapterPercentages[chapter, default: 0.2] },
@@ -253,13 +241,13 @@ struct AllQuestionsReviewView: View {
             // 條件：必須已解鎖第五章
             if dataService.isChapterUnlocked(5) {
                 Button(action: setMockExamRatio) {
-                    Label("設為模擬考比例", systemImage: "graduationcap.fill")
+                    Label("review_mock".localized(), systemImage: "graduationcap.fill")
                 }
                 .buttonStyle(.bordered) // 使用不同樣式以區分
                 .tint(.yellow)
             }
             
-            Button("建立總複習關卡") {
+            Button("review_play".localized()) {
                 var reviewQuestions: [QuizQuestion] = []
                 for (chapter, percentage) in chapterPercentages {
                     if dataService.isChapterUnlocked(chapter) {
@@ -313,7 +301,10 @@ struct ReviewGuidebookView: View {
     
     @State private var zoomedImageName: String? = nil
     @State private var searchText = ""
-    
+    @EnvironmentObject var languageManager: LanguageManager // ✅ 新增
+    private var langCode: String { // ✅ 新增
+        languageManager.currentLanguage
+    }
     // 按章節分組的問題
     private var chapters: [Int] {
         // 從問題列表中提取所有不重複的章節號碼，並排序
@@ -326,8 +317,9 @@ struct ReviewGuidebookView: View {
             return chapterQuestions
         } else {
             return chapterQuestions.filter {
-                $0.questionText.localizedCaseInsensitiveContains(searchText) ||
-                $0.correctAnswer.localizedCaseInsensitiveContains(searchText)
+                // 🔧 更改：使用多語言函式進行搜尋
+                $0.questionText(for: langCode).localizedCaseInsensitiveContains(searchText) ||
+                $0.correctAnswer(for: langCode).localizedCaseInsensitiveContains(searchText)
             }
         }
     }
@@ -338,7 +330,7 @@ struct ReviewGuidebookView: View {
                 Color(UIColor.secondarySystemBackground).ignoresSafeArea()
                 
                 if questions.isEmpty {
-                    Text("目前沒有任何題目")
+                    Text("no_question".localized())
                         .font(.title2)
                         .foregroundColor(.secondary)
                 } else {
@@ -347,7 +339,7 @@ struct ReviewGuidebookView: View {
                             // 檢查搜尋後該章節是否還有題目
                             let filteredQuestions = questionsForChapter(chapter)
                             if !filteredQuestions.isEmpty {
-                                Section(header: Text("第 \(chapter) 章")
+                                Section(header: Text(String(format: "chapter_title".localized(), chapter))
                                     .font(.headline).padding(.leading).padding(.top)) {
                                     LazyVStack(spacing: 0) {
                                         ForEach(filteredQuestions) { question in
@@ -383,7 +375,7 @@ struct ReviewGuidebookView: View {
                 }
             }
         }
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋問題或答案")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search".localized())
         // 👇 2. 把圓角、陰影、邊距修飾符，加在 NavigationStack 的外面
         .cornerRadius(20)
         .shadow(radius: 15)
@@ -400,10 +392,10 @@ struct ReviewChapterRow: View {
     var body: some View {
         VStack(alignment: .leading) {
             HStack {
-                Text("\(title): 共 \(totalCount) 題")
+                Text(String(format: "chapter_total".localized(), title, totalCount))
                     .padding(.horizontal,10)
                 Spacer()
-                Text("題目比例: \(Int(percentage * 100))%")
+                Text(String(format: "question_percentage".localized(), Int(percentage * 100)))
                 .padding(.horizontal,10)
             }
             .font(.custom("CEF Fonts CJK Mono", size: 14)) // 縮小一點
@@ -419,4 +411,5 @@ struct ReviewChapterRow: View {
 }
 #Preview {
     ContentView()
+        .environmentObject(LanguageManager.shared) // Add this line
 }

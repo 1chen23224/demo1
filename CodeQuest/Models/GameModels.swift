@@ -1,29 +1,45 @@
 import Foundation
 
-/// 遊戲的主要題目模型
-struct QuizQuestion: Identifiable {
-    /// SwiftUI List / ForEach 用的唯一 ID
-    let id = UUID()
-    
-    /// 題目在題庫裡的唯一編號 (對應 CSV 的 col[0])
+// In your QuizQuestion.swift file (or wherever it's defined)
+
+struct QuizQuestion: Identifiable, Codable, Hashable {
+    var id = UUID() // For Identifiable
     let questionID: Int
-    
-    /// 題目所屬章節 (對應 CSV 的 col[1])
     let level: Int
-    
-    /// 題目文字 (對應 CSV 的 col[2])
-    let questionText: String
-    
-    /// 題目圖片名稱，空字串會轉成 nil (對應 CSV 的 col[3])
     let imageName: String?
-    
-    /// 選項清單 (對應 CSV 的 col[4] ~ col[7])
-    let options: [String]
-    
-    /// 正確答案 (對應 CSV 的 col[8])
-    /// 如果讀不到 → 取第一個選項，若沒有選項則給空字串
-    let correctAnswer: String
-    
-    /// 額外資訊，代表題目所屬的不同 stage
     let stage: Int
+
+    // ❌ REMOVE the old single-language properties
+    // let questionText: String
+    // let options: [String]
+    // let correctAnswer: String
+
+    // ✅ ADD these new multi-language properties
+    let questionText: [String: String]   // e.g., ["zh-Hant": "問題", "en": "Question"]
+    let options: [String: [String]]    // e.g., ["zh-Hant": ["A", "B"], "en": ["A_en", "B_en"]]
+    let correctAnswer: [String: String]  // e.g., ["zh-Hant": "答案", "en": "Answer"]
+
+    // ✅ ADD these helper functions to easily get the text for the current language
+    // This makes using it in the UI much cleaner.
+    func questionText(for langCode: String) -> String {
+        return questionText[langCode] ?? questionText["zh-Hant"] ?? "Question text not found"
+    }
+
+    func options(for langCode: String) -> [String] {
+        return options[langCode] ?? options["zh-Hant"] ?? []
+    }
+
+    func correctAnswer(for langCode: String) -> String {
+        return correctAnswer[langCode] ?? correctAnswer["zh-Hant"] ?? ""
+    }
+    
+    // Make sure Codable and Hashable still work with the new structure
+    // We can define what makes a question unique for hashing purposes
+    static func == (lhs: QuizQuestion, rhs: QuizQuestion) -> Bool {
+        lhs.questionID == rhs.questionID
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(questionID)
+    }
 }

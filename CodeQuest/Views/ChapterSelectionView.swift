@@ -1,6 +1,7 @@
 import SwiftUI
 import CoreGraphics
 
+
 struct AlphaShape: Shape {
     let cgImage: CGImage
     var yOffset: CGFloat = -0.1
@@ -82,7 +83,7 @@ struct HandGuideView: View {
                 .onAppear { animate = true }
                 .allowsHitTesting(false)
 
-            Text("點擊這裡開始")
+            LocalizedText(key: "guide_tap_to_start")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.yellow)
                 .shadow(color: .black.opacity(0.7), radius: 3, x: 1, y: 1)
@@ -220,6 +221,8 @@ struct MapView: View {
 // MARK: - 主畫面 (已修正)
 struct ChapterSelectionView: View {
     @ObservedObject private var dataService = GameDataService.shared
+    @EnvironmentObject var languageManager: LanguageManager
+    @Environment(\.horizontalSizeClass) var sizeClass
     let onChapterSelect: (Int) -> Void
     let onSelectReviewTab: () -> Void
     
@@ -234,7 +237,8 @@ struct ChapterSelectionView: View {
     @State private var mapTapCount = 0
     @State private var showSecretKeyAlert = false
     @State private var secretKeyInput = ""
-    
+    // ✅ 步驟 1: 新增一個 State 來控制語言選擇視窗的顯示
+    @State private var showLanguageSelector = false
     // 1. 定義 iPhone 的資源設定
     let iphoneChapterConfigs: [(chapter: Int, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat)] = [
         // (章節, 中心點x, 中心點y, 寬度, 高度) - 請使用你的實際座標
@@ -302,21 +306,53 @@ struct ChapterSelectionView: View {
                 .ignoresSafeArea()
             }
             
-            // --- 標題 ---
+            // --- 標題和語言切換按鈕 ---
             VStack {
-                Text("𝑴 𝑨 𝑷")
-                    .font(.custom("CEF Fonts CJK Mono", size: 50))
-                    .foregroundColor(.black)
-                    .onTapGesture {
-                        mapTapCount += 1
-                        if mapTapCount >= 5 {
-                            showSecretKeyAlert = true
-                            mapTapCount = 0
+                // ✅ Base layer: An HStack that spans the full width to center the title
+                HStack {
+                    Spacer()
+                    Text("𝑴 𝑨 𝑷")
+                        .font(.custom("CEF Fonts CJK Mono", size: 50))
+                        .foregroundColor(.black)
+                        .onTapGesture {
+                            mapTapCount += 1
+                            if mapTapCount >= 5 {
+                                showSecretKeyAlert = true
+                                mapTapCount = 0
+                            }
                         }
+                    Spacer()
+                }
+                
+                // ✅ Overlay layer: Place the button on top, aligned to the right
+                .overlay(alignment: .trailing) {
+                    Button(action: {
+                        showLanguageSelector = true
+                    }) {
+                        Image(systemName: "globe.americas.fill") // A more detailed globe
+                            .font(.system(size: 24, weight: .regular))
+                            .foregroundColor(.blue.opacity(0.8))
+                            .frame(width: 40, height: 40)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(0.4))
+                                    .shadow(color: .black.opacity(0.3), radius: 3, x: 0, y: 2)
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.black.opacity(0.5), lineWidth: 0.7)
+                            )
+                        
                     }
+                    .padding(.trailing, 15) // Give the button some space from the edge
+                }
+                .padding(.top, (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.windows.first?.safeAreaInsets.top ?? 0)
+                
                 Spacer()
             }
+            .offset(y: sizeClass == .regular ? 30 : -45)
         }
+    
         
         .background(Color.black.ignoresSafeArea())
         // ✅ FIX 2: We use a stable .overlay for the guide view.
@@ -362,24 +398,33 @@ struct ChapterSelectionView: View {
                 }
             }
         }
-        .alert("芝麻開門！！", isPresented: $showSecretKeyAlert) {
-            TextField("請輸入凍頂可可...", text: $secretKeyInput)
+        // ✅ 步驟 3: 加上彈出視窗的 Modifier
+        .confirmationDialog("select_language_title".localized(), isPresented: $showLanguageSelector, titleVisibility: .visible) {
+            // ✅ 步驟 4: 動態產生語言選項
+            // 假設你的 LanguageManager 有一個 `availableLanguages` 的屬性
+            // 例如: [("en", "English"), ("zh-Hant", "繁體中文")]
+            ForEach(languageManager.availableLanguages, id: \.code) { lang in
+                Button(lang.name) {
+                    languageManager.changeLanguage(to: lang.code)
+                }
+            }
+        }
+        // ✅ 修改 Alert 的內容
+        .alert("secret_alert_title".localized(), isPresented: $showSecretKeyAlert) {
+            TextField("secret_alert_placeholder".localized(), text: $secretKeyInput)
                 .autocapitalization(.none)
             
-            Button("取消", role: .cancel) {
+            Button("secret_alert_button_cancel".localized(), role: .cancel) {
                 mapTapCount = 0
                 secretKeyInput = ""
             }
             
-            // ✨ MODIFIED: 將 "解鎖" 改為 "確定"，並加入新的條件判斷
-            Button("好Q") {
+            Button("secret_alert_button_confirm".localized()) {
                 let input = secretKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
                 
                 if input == "cocoyyds" {
-                    // 舊功能：解鎖所有關卡
                     dataService.unlockAllStages()
                 } else if input == "coco324" {
-                    // ✨ NEW: 新功能：呼叫重置資料的函式
                     dataService.resetAllData()
                 }
                 
@@ -388,7 +433,7 @@ struct ChapterSelectionView: View {
             }
             
         } message: {
-            Text("連續點擊標題5次可呼喚可可。")
+            Text("secret_alert_message".localized())
         }
         .navigationBarHidden(true)
     }
@@ -417,7 +462,7 @@ struct BottomTabButton: View {
                     .renderingMode(.template)
                     .foregroundColor(isEnabled ? (isSelected ? .yellow : .white) : .gray)
                     .frame(width: 28, height: 28)
-                Text(title)
+                Text(title) // Text 會自動處理本地化字串
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(isEnabled ? (isSelected ? .yellow : .white) : .gray)
             }
@@ -439,5 +484,7 @@ struct ChapterSelectionView_Previews: PreviewProvider {
             showDebugBorder: true // 👈 開啟 Debug Mode
         )
         .previewDisplayName("章節地圖 Debug")
+        .environmentObject(LanguageManager.shared)
     }
+        
 }

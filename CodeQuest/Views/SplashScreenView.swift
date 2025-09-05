@@ -90,7 +90,7 @@ struct SplashScreenView: View {
             // ✅ 「點擊繼續」的文字提示
             VStack {
                 Spacer()
-                Text("點擊任意位置繼續")
+                Text("click2start".localized())
                     // 使用動態計算的字體和間距
                     .font(.custom("CEF Fonts CJK Mono", size: continueTextFontSize))
                     .foregroundColor(.white)
@@ -148,41 +148,17 @@ struct TermsOfServiceView: View {
     
     var body: some View {
         VStack(spacing: 15) {
-            Text("使用條款")
+            Text("termsofuse".localized())
                 .font(.title.bold())
                 .padding(.top)
             
             ScrollView {
-                Text("""
-                1. 版權與所有權
-                
-                本應用程式內包含的所有內容（包括但不限於文字、圖片、圖表和設計），除非另有說明，均屬於其原版權所有者的財產，並且受版權法及國際條約的保護。用戶不得對這些內容進行任何形式的商業利用、再發佈或複製，除非獲得明確的書面授權。
-                
-                2. 內容來源與使用
-                
-                本應用程式部分內容來源於澳門特別行政區交通事務局的《駕駛理論測驗》公開資料（www.dsat.gov.mo）。
-                
-                3. 用戶責任
-                
-                使用本應用程式即表示您同意遵守所有的使用條款，並保證您不會使用本應用程式的內容進行任何形式的非法或不當行為。您同意不會對應用程式內容進行任何修改、再分發或商業化行為，除非您已經獲得適當的授權。
-                
-                4. 免責聲明
-                
-                本應用程式的所有內容，均以「現狀」提供。開發者不保證內容的準確性、完整性或可靠性，並對因使用本應用程式內容而產生的任何損害或損失不承擔任何責任。對於外部網站或服務的連結，本應用程式不負任何責任。
-                
-                5. 隱私與資料保護
-                
-                我們尊重並保護您的隱私。本應用程式是一款單機遊戲，因此不會收集、存儲或共享您的個人資料。我們不會要求或存取任何與您的裝置、位置、聯絡方式或遊戲過程相關的個人資訊。使用本應用程式時，您不需要提供任何私人資料，並且本應用程式不會向第三方提供您的任何資料。如有任何隱私政策的變動，我們將及時通知並更新條款。
-                
-                6. 變更與更新
-                
-                我們保留隨時修改或更新本使用條款的權利。當條款有所更動時，會在應用程式內及相關頁面發佈通知並標明更新日期。
-                """)
+                Text("terms".localized())
                 .font(.body)
                 .padding(.horizontal)
             }
             
-            Button("我已閱讀並同意") {
+            Button("acceptnagree".localized()) {
                 UserDefaults.standard.set(true, forKey: "userAcceptedTerms") // 儲存同意狀態
                 userAcceptedTerms = true
                 withAnimation {

@@ -72,8 +72,9 @@ struct GameNavigationView: View {
     @State private var customReviewQuestions: [QuizQuestion]? = nil
     @State private var isOverlayActive = false
     
-    // 控制 Alert
     @State private var showPersonalAlert = false
+    
+    @EnvironmentObject var languageManager: LanguageManager   // 👈 注入語言管理器
 
     private var shouldLockTabSwipe: Bool {
         selectedTab == 0 &&
@@ -84,6 +85,7 @@ struct GameNavigationView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
+            // 學習
             Group {
                 if let questions = customReviewQuestions {
                     LevelView(
@@ -110,7 +112,6 @@ struct GameNavigationView: View {
                         onBack: { self.selectedChapter = nil },
                         isOverlayActive: $isOverlayActive
                     )
-
                 } else {
                     ChapterSelectionView(
                         onChapterSelect: { chapterNumber in self.selectedChapter = chapterNumber },
@@ -120,7 +121,9 @@ struct GameNavigationView: View {
             }
             .tag(0)
 
+            // 錯題複習
             StudyView(
+                initialTab: 0, // 👉 預設錯題複習
                 onStartReview: { questions in
                     self.customReviewQuestions = questions
                     self.selectedTab = 0
@@ -128,39 +131,54 @@ struct GameNavigationView: View {
                 onBack: { selectedTab = 0 }
             )
             .tag(1)
+
+            // 總複習
+            StudyView(
+                initialTab: 1, // 👉 預設總複習
+                onStartReview: { questions in
+                    self.customReviewQuestions = questions
+                    self.selectedTab = 0
+                },
+                onBack: { selectedTab = 0 }
+            )
+            .tag(2)
         }
+
         .tabViewStyle(.page(indexDisplayMode: .never))
         .background(TabSwipeDisabler(isDisabled: shouldLockTabSwipe))
         .ignoresSafeArea()
         .safeAreaInset(edge: .bottom) {
             if selectedStage == nil && customReviewQuestions == nil && !isOverlayActive {
                 HStack {
-                    BottomTabButton(iconName: "icon-1", title: "學習", tag: 0, isSelected: selectedTab == 0) {
+                    BottomTabButton(iconName: "icon-1", title: "tab_study".localized(), tag: 0, isSelected: selectedTab == 0) {
                         withAnimation { selectedTab = 0 }
                     }
-                    BottomTabButton(iconName: "icon-2", title: "複習", tag: 1, isSelected: selectedTab == 1) {
+                    BottomTabButton(iconName: "icon-2", title: "tab_wrong".localized(), tag: 1, isSelected: selectedTab == 1) {
                         withAnimation { selectedTab = 1 }
                     }
-                    // ✅ 改成可點擊，顯示 Alert
-                    BottomTabButton(iconName: "icon-3", title: "聯絡", tag: 2, isSelected: false, isEnabled: true) {
+                    BottomTabButton(iconName: "icon-3", title: "tab_review".localized(), tag: 2, isSelected: selectedTab == 2) {
+                        withAnimation { selectedTab = 2 }
+                    }
+                    BottomTabButton(iconName: "icon-4", title: "tab_contact".localized(), tag: 3, isSelected: false, isEnabled: true) {
                         showPersonalAlert = true
                     }
                 }
-                .padding(.horizontal, 45)
+                .id(languageManager.currentLanguage)
+                .padding(.horizontal, 30)
                 .frame(maxWidth: .infinity)
                 .frame(height: 70)
                 .background(Color.black.opacity(0.3))
                 .offset(y: 25)
             }
         }
-        // ✅ Alert：打開 IG or Safari
-        .alert("隨時聯絡我們", isPresented: $showPersonalAlert) {
-            Button("打開 IG") {
+
+        .alert("contact_alert_title".localized(), isPresented: $showPersonalAlert) {
+            Button("contact_alert_button_ig".localized()) {
                 openInstagram(username: "full_score_top")
             }
-            Button("取消", role: .cancel) { }
+            Button("contact_alert_button_cancel".localized(), role: .cancel) { }
         } message: {
-            Text("我們的 IG：@full_score_top")
+            Text("contact_alert_message".localized())
         }
     }
     
@@ -177,4 +195,5 @@ struct GameNavigationView: View {
 
 #Preview {
     ContentView()
+        .environmentObject(LanguageManager.shared) // Add this line
 }

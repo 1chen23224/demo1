@@ -9,6 +9,7 @@ enum HintState {
 struct LevelView: View {
     @Binding var isGameActive: Bool
     @EnvironmentObject var viewModel: GameViewModel
+    @EnvironmentObject var languageManager: LanguageManager
     @Environment(\.horizontalSizeClass) var sizeClass
     @State private var selectedOption: String?
     @State private var isAnswerSubmitted = false
@@ -26,6 +27,10 @@ struct LevelView: View {
     @State private var showFeedbackOverlay = false
     
     @State private var glowingOption: String? = nil
+    
+    private var langCode: String {
+        return languageManager.currentLanguage
+    }
     // ✨ NEW: 定義自適應的按鈕間距
     private var buttonSpacing: CGFloat {
         sizeClass == .regular ? 25 : 18 // iPad 間距 25, iPhone 間距 15
@@ -94,12 +99,13 @@ struct LevelView: View {
                         // --- 選項按鈕 ---
                         VStack(spacing: buttonSpacing) {
                             Spacer()
-                            ForEach(viewModel.currentQuestion.options.filter { !$0.isEmpty }, id: \.self) { option in
+                            // ✅ 步驟 3: 套用 langCode (這部分邏輯和之前一樣)
+                            ForEach(viewModel.currentQuestion.options(for: langCode).filter { !$0.isEmpty }, id: \.self) { option in
                                 OptionButton(
                                     optionText: option,
                                     selectedOption: $selectedOption,
                                     isSubmitted: $isAnswerSubmitted,
-                                    correctAnswer: viewModel.currentQuestion.correctAnswer,
+                                    correctAnswer: viewModel.currentQuestion.correctAnswer(for: langCode),
                                     glowingOption: glowingOption
                                 )
                                 .modifier(ShakeEffect(attempts: wrongAttempts.filter { $0 == option }.count))
@@ -134,10 +140,8 @@ struct LevelView: View {
                     Color.clear // 透明背景，僅用於附加 .safeAreaInset
                         .safeAreaInset(edge: .top) {
                             QuestionBar(
-                                text: viewModel.currentQuestion.questionText,
-                                // 舊的寫法：
-                                // hasImage: viewModel.currentQuestion.imageName != nil,
-                                // ✨ 新的寫法：
+                                // ✅ 步驟 3: 套用 langCode
+                                text: viewModel.currentQuestion.questionText(for: langCode),
                                 imageName: viewModel.currentQuestion.imageName,
                                 shouldAnimateIcon: false,
                                 showHandHint: false,
@@ -177,7 +181,7 @@ struct LevelView: View {
                             VStack(alignment: .trailing, spacing: 5) {
                                 HeartView(lives: viewModel.lives)
                                 
-                                Text("第 \(min(viewModel.correctlyAnsweredCount + 1, max(1, viewModel.totalQuestions)))/\(viewModel.totalQuestions) 題")
+                                Text(String(format: "question_progress_indicator".localized(), min(viewModel.correctlyAnsweredCount + 1, max(1, viewModel.totalQuestions)), viewModel.totalQuestions))
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 8)
@@ -260,7 +264,15 @@ struct LevelView: View {
                 tutorialStep = 1
             }
         }
-        .gesture(DragGesture(), including: .all)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    // 攔截到手勢的變化，但刻意不執行任何動作
+                }
+                .onEnded { _ in
+                    // 攔截到手勢的結束，也刻意不執行任何動作
+                }
+        )
     }
         
         // ... [所有 private func 保持不變] ...
@@ -270,7 +282,8 @@ struct LevelView: View {
             guard hintState == .available else { return }
             if viewModel.useHint() {
                 withAnimation(.easeInOut(duration: 0.5)) {
-                    glowingOption = viewModel.currentQuestion.correctAnswer
+                    // ✅ 步驟 3: 套用 langCode
+                    glowingOption = viewModel.currentQuestion.correctAnswer(for: langCode)
                 }
             }
         }
@@ -280,7 +293,7 @@ struct LevelView: View {
             isAnswerSubmitted = true
             selectedOption = option
             glowingOption = nil
-            if option != viewModel.currentQuestion.correctAnswer {
+            if option != viewModel.currentQuestion.correctAnswer(for: langCode) {
                 wrongAttempts.append(option)
                 triggerFeedback(.red)
             } else {
@@ -355,35 +368,35 @@ struct TutorialOverlay: View {
                 switch step {
                 case 1:
                     // 定位在右上角
-                    tipView(text: "這是你的生命值 ❤️ 和提示 💡答錯會扣心，提示能幫助你！", color: .blue)
+                    tipView(text: "onboarding_tip_1".localized(), color: .blue)
                         .padding(.top, geometry.safeAreaInsets.top + 80)
                         .padding(.trailing)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         
                 case 2:
                     // 定位在上方中央
-                    tipView(text: "這裡是題目，按下可顯示圖片，請仔細觀察 🖼️", color: .green)
+                    tipView(text: "onboarding_tip_2".localized(), color: .green)
                         .padding(.top, geometry.safeAreaInsets.top + 180)
                         .padding(.horizontal)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
                 case 3:
                      // 定位在下方
-                    tipView(text: "從這裡選擇正確答案 ✅\n點擊後會立即知道對錯", color: .orange)
+                    tipView(text: "onboarding_tip_3".localized(), color: .orange)
                         .padding(.bottom, geometry.safeAreaInsets.bottom + 250) // 從底部安全區往上推
                         .padding(.horizontal)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         
                 case 4:
                     // 定位在畫面中央
-                    tipView(text: "這裡顯示本關總題數和目前進度\n🚗車子要往終點前進", color: .purple)
+                    tipView(text: "onboarding_tip_4".localized(), color: .purple)
                         .padding(.top, geometry.safeAreaInsets.top + 400)
                         .padding(.horizontal)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     
                 case 5:
                     // 定位在上方（略低於題目）
-                    tipView(text: "答對了會獲得分數和連擊獎勵 🎉\n答錯會扣生命！", color: .red)
+                    tipView(text: "onboarding_tip_5".localized(), color: .red)
                         .padding(.top, geometry.safeAreaInsets.top + 350)
                         .padding(.horizontal)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -433,9 +446,9 @@ struct ResultView: View {
     var stageText: String {
         let (chapter, stageInChapter) = GameDataService.shared.chapterAndStageInChapter(for: stageNumber)
         if isBossStage {
-            return "第 \(chapter) 章最終關"
+            return String(format: "stage_title_boss_format".localized(), chapter)
         } else {
-            return "第 \(chapter) 章第 \(stageInChapter) 關"
+            return String(format: "stage_title_normal_format".localized(), chapter, stageInChapter)
         }
     }
     private let textColor = Color(red: 85/255, green: 65/255, blue: 50/255)
@@ -548,7 +561,7 @@ struct ResultView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text("\(combo)").font(.system(size: 50, weight: .heavy, design: .rounded)).background(ZStack { Text("\(combo)").font(.system(size: 50, weight: .heavy, design: .rounded)).offset(x: 2, y: 2).foregroundColor(.black.opacity(0.6)); Text("\(combo)").font(.system(size: 50, weight: .heavy, design: .rounded)).offset(x: -2, y: -2).foregroundColor(.black.opacity(0.6)) }).foregroundStyle(LinearGradient(gradient: Gradient(colors: [.white, .white, .orange]), startPoint: .top, endPoint: .bottom)).shadow(color: .black.opacity(0.5), radius: 3, x: 4, y: 4)
                         .allowsHitTesting(false)
-                    Text("連對").font(.system(size: 20, weight: .bold, design: .rounded)).foregroundColor(.white).shadow(color: .black.opacity(0.7), radius: 2).padding(.leading, 4).offset(y: -5)
+                    Text("combo".localized()).font(.system(size: 20, weight: .bold, design: .rounded)).foregroundColor(.white).shadow(color: .black.opacity(0.7), radius: 2).padding(.leading, 4).offset(y: -5)
                         .allowsHitTesting(false)
                 }.transition(.asymmetric(insertion: .scale(scale: 0.5, anchor: .topTrailing).combined(with: .opacity), removal: .scale(scale: 0.5, anchor: .topTrailing).combined(with: .opacity).animation(.easeOut(duration: 0.3))))
                     .offset(x: 14) // 👈 向右移 40pt
@@ -972,4 +985,5 @@ struct OptionButton: View {
 }
 #Preview {
     ContentView()
+        .environmentObject(LanguageManager.shared) // Add this line
 }

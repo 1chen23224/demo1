@@ -41,7 +41,10 @@ class GameViewModel: ObservableObject {
     
     @Published var quizQuestions: [QuizQuestion] = []
     @Published var questionRefreshID = UUID()
-    
+    // ✅ 新增這兩個屬性來監聽語言變化
+    private var languageManager = LanguageManager.shared
+    private var cancellable: AnyCancellable?
+
     var availableStages: Set<Int> {
         Set(allQuestions.map { $0.stage })
     }
@@ -75,20 +78,31 @@ class GameViewModel: ObservableObject {
     
     var currentQuestion: QuizQuestion {
         if isReviewingWrongQuestions {
+            // Handle the case where all wrong questions have been answered
             return wronglyAnsweredQuestions.first ?? QuizQuestion(
-                questionID: 0, level: 0,
-                questionText: "所有題目已完成！",
-                imageName: nil, options: [], correctAnswer: "",
-                stage:0
+                questionID: 0,
+                level: 0,
+                imageName: nil,
+                stage: 0,
+                // ❗️ MODIFIED: Provide the text in the new dictionary format
+                questionText: ["en": "all_complete".localized()],
+                options: ["en": []],
+                correctAnswer: ["en": ""]
             )
         } else {
+            // Handle the normal quiz flow
             guard !quizQuestions.isEmpty, currentQuestionIndex < quizQuestions.count else {
+                // Handle the "loading" or empty state
                 return QuizQuestion(
-                    questionID: 0, level: 0,
-                    questionText: "載入中...",
-                    imageName: nil, options: [], correctAnswer: "",
-                    stage: 0
-            )
+                    questionID: 0,
+                    level: 0,
+                    imageName: nil,
+                    stage: 0,
+                    // ❗️ MODIFIED: Provide the text in the new dictionary format
+                    questionText: ["en": "loading".localized()],
+                    options: ["en": []],
+                    correctAnswer: ["en": ""]
+                )
             }
             return quizQuestions[currentQuestionIndex]
         }
@@ -109,6 +123,15 @@ class GameViewModel: ObservableObject {
     init(stage: Int = 1, customQuestions: [QuizQuestion]? = nil) {
         self.allQuestions = dataService.allQuestions
         
+        // ✅ 在初始化方法的最後，設定監聽器
+        self.cancellable = languageManager.$currentLanguage
+            .sink { [weak self] _ in
+                // 當語言改變時，我們只需要發布一個變更通知
+                // UI 就會用新的語言設定來重繪自己
+                print("Language changed. Forcing UI refresh.")
+                self?.questionRefreshID = UUID()
+            }
+
         if let questions = customQuestions {
             self.currentStage = -1
             self.quizQuestions = questions
@@ -206,12 +229,17 @@ class GameViewModel: ObservableObject {
     }
     
     func submitAnswer(_ answer: String) {
-        let isCorrect = answer == currentQuestion.correctAnswer
-        if isCorrect { handleCorrectAnswer() }
-        else { handleWrongAnswer() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.moveToNextState()
-        }
+        // ✅ 使用當前語言來獲取正確答案
+         let correctAnswerForCurrentLanguage = currentQuestion.correctAnswer(for: languageManager.currentLanguage)
+         
+         let isCorrect = (answer == correctAnswerForCurrentLanguage)
+         
+         if isCorrect { handleCorrectAnswer() }
+         else { handleWrongAnswer() }
+         
+         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+             self.moveToNextState()
+         }
     }
     
     private func handleCorrectAnswer() {
