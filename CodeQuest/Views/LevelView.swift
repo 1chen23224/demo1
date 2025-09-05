@@ -67,15 +67,6 @@ struct LevelView: View {
     var body: some View {
         // ⭐️ 將 GeometryReader 作為最外層的視圖，獲取整個螢幕的真實尺寸
         GeometryReader { geometry in
-            // vvvvvvv ✨ 請在這裡加上這段偵錯碼 vvvvvvv
-            let _ = {
-                print("--- LevelView body is rendering ---")
-                print("Current Stage: \(viewModel.currentStage)")
-                print("Is Quiz Complete? \(viewModel.isQuizComplete)") // <--- 最關鍵的日誌！
-                print("Is Game Over? \(viewModel.isGameOver)")
-                print("---------------------------------")
-            }()
-            // ^^^^^^^ ✨ 請在這裡加上這段偵錯碼 ^^^^^^^
             ZStack {
                 // --- 主要遊戲畫面 (天空 & 地面) ---
                 VStack(spacing: 0) {
@@ -83,7 +74,8 @@ struct LevelView: View {
                     ZStack {
                         Color(red: 95/255, green: 191/255, blue: 235/255)
                         ScrollingBackgroundView(
-                            scrollTrigger: viewModel.score,
+                            scrollTrigger: viewModel.correctlyAnsweredCount + 1,
+                            
                             imageName: backgroundName
                         )
                     }
@@ -245,10 +237,6 @@ struct LevelView: View {
         .onChange(of: viewModel.questionRefreshID) { _ in
             handleNewQuestion()
         }
-        // This handles the INITIAL case when the view first appears
-        .onAppear {
-            handleNewQuestion()
-        }
             .onChange(of: viewModel.comboCount) { newComboCount in
                 if newComboCount > 1 {
                     self.autoCloseComboTask?.cancel()
@@ -264,14 +252,15 @@ struct LevelView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: task)
                 }
             }
-            .onAppear {
-                handleNewQuestion()
-                if GameDataService.shared.highestUnlockedStage == 1 {
-                    tutorialStep = 1
-                }
+        // ✨ 合併兩個 .onAppear
+        .onAppear {
+            handleNewQuestion()
+            if GameDataService.shared.highestUnlockedStage == 1 {
+                tutorialStep = 1
             }
-            .gesture(DragGesture(), including: .all)
         }
+        .gesture(DragGesture(), including: .all)
+    }
         
         // ... [所有 private func 保持不變] ...
         private var backgroundName: String { viewModel.backgroundImageName }
