@@ -59,9 +59,9 @@ struct LevelView: View {
     // ✨ NEW: 根據裝置類型決定垂直偏移量
     private var verticalOffset: CGFloat {
         if sizeClass == .regular { // 如果是 iPad
-            return 40 // iPad 向上移動 80 點
+            return -5 // iPad 向上移動 80 點
         } else { // 如果是 iPhone
-            return 10 // iPhone 向上移動 40 點
+            return -10 // iPhone 向上移動 40 點
         }
     }
     var body: some View {
@@ -106,9 +106,10 @@ struct LevelView: View {
                                 .onTapGesture { self.handleTap(on: option) }
                             }
                             Spacer()
-                            Spacer()
+                                
                         }
-                        .frame(maxHeight: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity) // ✨ CORRECTED LINE
+                        
                         .padding(.horizontal, sizeClass == .regular ? 80 : 22)
                         
                         .offset(y: verticalOffset) // ✨ 使用自適應的偏移量變數
@@ -809,10 +810,6 @@ struct QuestionBar: View {
                                    height: sizeClass == .regular ? 200 : 110) // 給定一個固定的縮圖大小
                             .background(Color.black.opacity(0.3))
                             .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.white.opacity(0.7), lineWidth: 2)
-                            )
                             .shadow(color: .black.opacity(0.35), radius: 4, y: 3)
                             .scaleEffect(pressPulse ? 1.1 : (shouldAnimateIcon || breath ? 1.08 : 1.0))
                     }
