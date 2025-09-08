@@ -836,7 +836,7 @@ struct SummaryDataProvider {
     static func loadLocalizedSummaries() -> [SummaryContent] {
         // 把原本 static let 裡的所有內容，原封不動地搬到這裡面
         let summaries: [SummaryContent] = [
-            // 第 2 章
+            // MARK: 🔧 MODIFIED: 第二章 - 整合您的最新小筆記
             SummaryContent(chapterNumber: 2, title: String(format: "summary_ch2_title_format".localized(), 2), sections: [
                 SummarySection(heading: "summary_ch2_sec1_heading".localized(), icon: "arrow.triangle.swap", items: [
                     "summary_ch2_sec1_item1".localized(),
@@ -847,7 +847,10 @@ struct SummaryDataProvider {
                     "summary_ch2_sec2_item1".localized(),
                     "summary_ch2_sec2_item2".localized(),
                     "summary_ch2_sec2_item3".localized(),
-                    "summary_ch2_sec2_item4".localized()
+                    "summary_ch2_sec2_item4".localized(),
+                    "summary_ch2_sec2_item5".localized(),
+                    "summary_ch2_sec2_item6".localized(),
+                    "summary_ch2_sec2_item7".localized()
                 ]),
                 SummarySection(heading: "summary_ch2_sec3_heading".localized(), icon: "xmark.octagon.fill", items: [
                     "summary_ch2_sec3_item1".localized(),
@@ -870,8 +873,7 @@ struct SummaryDataProvider {
                     "summary_ch3_sec2_item4".localized()
                 ])
             ]),
-            
-            // 第 4 章
+            // MARK: 🔧 MODIFIED: 第四章終極整合版筆記
             SummaryContent(chapterNumber: 4, title: String(format: "summary_ch4_title_format".localized(), 4), sections: [
                 SummarySection(heading: "summary_ch4_sec1_heading".localized(), icon: "key.fill", items: [
                     "summary_ch4_sec1_item1".localized(),
@@ -894,9 +896,7 @@ struct SummaryDataProvider {
                     "summary_ch4_sec4_item1".localized(),
                     "summary_ch4_sec4_item2".localized(),
                     "summary_ch4_sec4_item3".localized(),
-                    "summary_ch4_sec4_item4".localized(),
-                    "summary_ch4_sec4_item5".localized(),
-                    "summary_ch4_sec4_item6".localized()
+                    "summary_ch4_sec4_item4".localized()
                 ]),
                 SummarySection(heading: "summary_ch4_sec5_heading".localized(), icon: "shield.lefthalf.filled.slash", items: [
                     "summary_ch4_sec5_item1".localized(),

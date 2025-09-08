@@ -60,20 +60,25 @@
 "next" = "Next";
 "boss_stage_title" = "-Chapter %d-\n\n\n  Final Stage";
 "normal_stage_title" = "-Chapter %d-\n\n\n  Stage %d";
+// MARK: - Chapter 2 Summary
 "summary_ch2_title_format" = "Chapter %d Summary";
 "summary_ch2_sec1_heading" = "Basic Driving and Turning Rules";
-"summary_ch2_sec1_item1" = "**Pick-up/Drop-off**: Should be done on the **left side** of the road.";
-"summary_ch2_sec1_item2" = "**One-Way Street Turns**: **Keep left when turning left, keep right when turning right**.";
-"summary_ch2_sec1_item3" = "**Two-Way Street Turns**: **Keep left for left turns, use center lane for right turns**.";
-"summary_ch2_sec2_heading" = "Right-of-Way Priority";
-"summary_ch2_sec2_item1" = "**Step 1: Check Signs** -> Vehicles at a **Yield (▽) sign** go **last**.";
-"summary_ch2_sec2_item2" = "**Step 2: Check Action** -> **Left-turning vehicles** have priority.";
-"summary_ch2_sec2_item3" = "**Step 3: Check Position** -> Yield to vehicles on the **left**.";
-"summary_ch2_sec2_item4" = "**Decision Flow (Combined)**: At non-signalized intersections, follow a counter-clockwise priority based on vehicle positions.";
-"summary_ch2_sec3_heading" = "Prohibitions";
-"summary_ch2_sec3_item1" = "**At Intersections**: **No** stopping, parking, overtaking, U-turns, or reversing.";
-"summary_ch2_sec3_item2" = "**Yellow Dashed Line**: **Can** stop for pick-up/drop-off, but **cannot** park.";
-"summary_ch2_sec3_item3" = "**Yellow Solid Line**: **No** stopping or parking.";
+"summary_ch2_sec1_item1" = "Picking Up/Dropping Off Passengers/Goods: Should be done on the left side of the road";
+"summary_ch2_sec1_item2" = "Turning on a One-Way Street: Keep left when turning left, keep right when turning right";
+"summary_ch2_sec1_item3" = "Turning on a Two-Way Street: Keep left when turning left, turn right from the center line";
+"summary_ch2_sec2_heading" = "Right-of-Way Priority (Yielding)";
+"summary_ch2_sec2_item1" = "Step 1: Look at the signs -> Vehicles with a Yield (▽) sign go last";
+"summary_ch2_sec2_item2" = "Step 2: Look at the action -> Left-turning vehicles have priority";
+"summary_ch2_sec2_item3" = "Step 3: Look at the position -> Let vehicles on the left proceed first";
+"summary_ch2_sec2_item4" = "Judgment Flow (Combined): At intersections without traffic lights, judge in this order: Left-turning vehicle -> Vehicle that won't obstruct traffic (yield to the left) -> Vehicle with a yield sign";
+"summary_ch2_sec2_item5" = "Start judging counter-clockwise from an empty entrance of the intersection; you can basically get the answer directly.";
+"summary_ch2_sec2_item6" = "Similarly, if you can identify which vehicle goes first, judging in a counter-clockwise direction from that vehicle will basically lead you directly to the answer.";
+"summary_ch2_sec2_item7" = "For T-intersection questions, you need to look at the road signs and determine the vehicles' paths.";
+"summary_ch2_sec3_heading" = "Prohibited Actions Reminder";
+"summary_ch2_sec3_item1" = "At an Intersection: You must not stop, park, overtake, make a U-turn, or reverse";
+"summary_ch2_sec3_item2" = "Yellow Dashed Line: You can stop to pick up/drop off, but you cannot park";
+"summary_ch2_sec3_item3" = "Yellow Solid Line: You must not stop or park";
+
 "summary_ch3_title_format" = "Chapter %d Summary";
 "summary_ch3_sec1_heading" = "Common Imprisonment/Suspension Periods";
 "summary_ch3_sec1_item1" = "One to three years";
@@ -84,32 +89,38 @@
 "summary_ch3_sec2_item2" = "Defective lights violation: $600";
 "summary_ch3_sec2_item3" = "Bridge violation: $900";
 "summary_ch3_sec2_item4" = "Driving without a license: $5,000 to $25,000";
+// MARK: - Chapter 4 Summary
 "summary_ch4_title_format" = "Chapter %d Summary";
-"summary_ch4_sec1_heading" = "Core Principles of Fine Amounts";
-"summary_ch4_sec1_item1" = "In the written test, **there are only five fixed fine amounts: $300, $600, $900, $1500, $3000**.";
-"summary_ch4_sec1_item2" = "Options with other fixed amounts (e.g., $400, $500, $1000) can usually be **immediately eliminated**!";
-"summary_ch4_sec2_heading" = "Overview of Keywords for the Five Major Fine Amounts";
-"summary_ch4_sec2_item1" = "**$300 (Minor Violations)**: Overloading, door offenses, starting improperly, stalling without signals, carrying passengers on a bicycle, pushing/riding on sidewalk, improper horn use, sudden deceleration, improper lane entry, license/document issues.";
-"summary_ch4_sec2_item2" = "**$600 (Moderate Violations)**: Loading/unloading goods, not parking on the left, helmet issues, P-plate violations, motorcycle violations (hands off/side-by-side/towing), using a phone, environmental impact (smoke/noise), accelerating while being overtaken, obstructing overtaking.";
-"summary_ch4_sec2_item3" = "**$900 (Affecting Traffic Flow)**: Improper loading, reversing, turning, not keeping left, blocking intersections, overtaking on the left.";
-"summary_ch4_sec2_item4" = "**$1500 (Dangerous Lighting)**: Improper use of **high-beam headlights**.";
-"summary_ch4_sec2_item5" = "**$3000 (Serious Violations)**: Overweight by **more than 20%**, non-compliant transport of dangerous goods, installing **radar jamming devices**.";
-"summary_ch4_sec3_heading" = "Quick Memory Tips";
-"summary_ch4_sec3_item1" = "If options include 3000 and other 4-digit numbers -> Choose **$3000**";
-"summary_ch4_sec3_item2" = "If options include 50, 600 -> Choose **$600**";
+"summary_ch4_sec1_heading" = "Core Principle of Fine Amounts";
+"summary_ch4_sec1_item1" = "In the written test, there are **only five fixed fine amounts: $300, $600, $900, $1500, $3000**.";
+"summary_ch4_sec1_item2" = "Options with other fixed amounts (e.g., $400, $500, $1000) can essentially be **ruled out immediately**!";
+
+"summary_ch4_sec2_heading" = "Overview of the Five Key Fine Amounts";
+"summary_ch4_sec2_item1" = "**$300 (Minor Offenses)**: Overloading, opening door carelessly, improper starting, stalling without signals, carrying passenger on a bicycle, pushing/driving on pavement, improper use of horn, sudden deceleration, improper lane entry, license/document issues.";
+"summary_ch4_sec2_item2" = "**$600 (Moderate Offenses)**: Improper loading/unloading, not parking on the left, helmet violations, P-plate violations, motorcycle offenses (hands off/riding abreast/towing), using a phone, environmental impact (smoke/noise), accelerating while being overtaken, obstructing another vehicle's overtaking.";
+"summary_ch4_sec2_item3" = "**$900 (Affecting Traffic Flow)**: Improperly carrying a load, improper reversing or turning, not keeping left, obstructing oncoming traffic, overtaking on the left.";
+"summary_ch4_sec2_item4" = "**$1500 (Dangerous Lighting)**: Improper use of **high beams**.";
+"summary_ch4_sec2_item5" = "**$3000 (Serious Offenses)**: Overloading by **more than 20%**, carrying dangerous goods improperly, installing a **radar jamming device**.";
+
+"summary_ch4_sec3_heading" = "Quick Memory Tips (Mnemonics)";
+"summary_ch4_sec3_item1" = "If options include 3000 and another four-digit number -> Choose **$3000**";
+"summary_ch4_sec3_item2" = "If options include 50 and 600 -> Choose **$600**";
 "summary_ch4_sec3_item3" = "If the highest option is 1000 -> Choose **$600**";
-"summary_ch4_sec3_item4" = "If options include 200, 400, 600, 900 -> Choose **$900**";
+"summary_ch4_sec3_item4" = "If options are 200, 400, 600, 900 -> Choose **$900**";
+
 "summary_ch4_sec4_heading" = "Fine Combinations (Range Questions)";
-"summary_ch4_sec4_item1" = "**Prioritize**: $600 - $2,500";
-"summary_ch4_sec4_item2" = "**Prioritize**: $2,000 - $10,000";
-"summary_ch4_sec4_item3" = "**Prioritize**: $4,000 - $20,000";
-"summary_ch4_sec4_item4" = "If you see **repeat offense** -> **$1,200 - $5,000**";
-"summary_ch4_sec4_item5" = "Failure to yield on approach ramp -> **$1,000 - $5,000**";
-"summary_ch4_sec4_item6" = "Note the pattern **start x 5 = end** (e.g., $6000 - $30000)";
-"summary_ch4_sec5_heading" = "Serious Offenses (Imprisonment/Heavy Fines)";
-"summary_ch4_sec5_item1" = "Hit and run: Up to **3 years** imprisonment";
+"summary_ch4_sec4_item1" = "**Priority Choice**: $600 - $2,500";
+"summary_ch4_sec4_item2" = "**Priority Choice**: $2,000 - $10,000";
+"summary_ch4_sec4_item3" = "**Priority Choice**: $4,000 - $20,000";
+"summary_ch4_sec4_item4" = "If you see **'Repeat Offender'** -> **$1,200 - $5,000**";
+"summary_ch4_sec4_item5" = "Failing to give way on slip road -> **$1,000 - $5,000**";
+"summary_ch4_sec4_item6" = "Note the pattern **'first number x 5 = second number'** (e.g., $6000 - $30000)";
+
+"summary_ch4_sec5_heading" = "Serious Offenses (Imprisonment/Heavy Penalties)";
+"summary_ch4_sec5_item1" = "Hit-and-run: Up to **3 years** imprisonment";
 "summary_ch4_sec5_item2" = "Driving without a license: **6 months** imprisonment & **$10,000 - $50,000**";
-"summary_ch4_sec5_item3" = "Habitual drunk driving/driving under influence: **1-3 years** imprisonment";
+"summary_ch4_sec5_item3" = "Driving under the influence of drink or drugs (habitual): **1-3 years** imprisonment";
+
 "summary" = "Summary";
 "no_summary" = "No summary available for this chapter yet.";
 "chapter_guidebook_title" = "Chapter %d Guidebook";
