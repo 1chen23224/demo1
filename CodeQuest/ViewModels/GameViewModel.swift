@@ -78,30 +78,27 @@ class GameViewModel: ObservableObject {
     
     var currentQuestion: QuizQuestion {
         if isReviewingWrongQuestions {
-            // Handle the case where all wrong questions have been answered
             return wronglyAnsweredQuestions.first ?? QuizQuestion(
                 questionID: 0,
                 level: 0,
                 imageName: nil,
                 stage: 0,
-                // ❗️ MODIFIED: Provide the text in the new dictionary format
-                questionText: ["en": "all_complete".localized()],
-                options: ["en": []],
-                correctAnswer: ["en": ""]
+                // ✅ 修改點 1: 使用通用鍵，並且儲存的是「鍵」，而不是本地化後的「值」
+                questionText: ["_LOCALIZED_KEY_": "all_complete"],
+                options: ["_LOCALIZED_KEY_": []],
+                correctAnswer: ["_LOCALIZED_KEY_": ""]
             )
         } else {
-            // Handle the normal quiz flow
             guard !quizQuestions.isEmpty, currentQuestionIndex < quizQuestions.count else {
-                // Handle the "loading" or empty state
                 return QuizQuestion(
                     questionID: 0,
                     level: 0,
                     imageName: nil,
                     stage: 0,
-                    // ❗️ MODIFIED: Provide the text in the new dictionary format
-                    questionText: ["en": "loading".localized()],
-                    options: ["en": []],
-                    correctAnswer: ["en": ""]
+                    // ✅ 修改點 2: 同樣地，這裡也使用通用鍵
+                    questionText: ["_LOCALIZED_KEY_": "loading"],
+                    options: ["_LOCALIZED_KEY_": []],
+                    correctAnswer: ["_LOCALIZED_KEY_": ""]
                 )
             }
             return quizQuestions[currentQuestionIndex]

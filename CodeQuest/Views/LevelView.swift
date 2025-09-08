@@ -138,19 +138,22 @@ struct LevelView: View {
                     
                     // --- 題目列（最上層 UI） ---
                     Color.clear // 透明背景，僅用於附加 .safeAreaInset
-                        .safeAreaInset(edge: .top) {
-                            QuestionBar(
-                                // ✅ 步驟 3: 套用 langCode
-                                text: viewModel.currentQuestion.questionText(for: langCode),
-                                imageName: viewModel.currentQuestion.imageName,
-                                shouldAnimateIcon: false,
-                                showHandHint: false,
-                                onImageTap: { openImageFromIcon() }
-                            )
-                            .padding(.horizontal)
-                            .padding(.vertical, 60)
-                        }
-                    
+                    .safeAreaInset(edge: .top) {
+                        QuestionBar(
+                            // ✅ 在這裡加入判斷
+                            // 如果 viewModel 說 quiz 已經完成，就直接顯示 "all_complete"
+                            // 否則，才去向 viewModel 拿取當前的問題文字
+                            text: viewModel.isQuizComplete ? "all_complete".localized() : viewModel.currentQuestion.questionText(for: langCode),
+                            
+                            // ✅ 同樣地，如果 quiz 完成了，就不應該再顯示任何圖片
+                            imageName: viewModel.isQuizComplete ? nil : viewModel.currentQuestion.imageName,
+                            
+                            shouldAnimateIcon: false,
+                            showHandHint: false,
+                            onImageTap: { openImageFromIcon() }
+                        )                            .padding(.horizontal)
+                        .padding(.vertical, 60)
+                    }
                     // --- 自動圖片彈窗 ---
                     if isImagePopupVisible, let imageName = viewModel.currentQuestion.imageName {
                         ImagePopupView(imageName: imageName, isVisible: $isImagePopupVisible)
