@@ -40,11 +40,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		991D0CEE2E6F1F7E0091F234 /* language */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = language;
-			sourceTree = "<group>";
-		};
 		993F8BD12E57624400A0D30A /* CodeQuest */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -93,7 +88,6 @@
 		993F8BC62E57624400A0D30A = {
 			isa = PBXGroup;
 			children = (
-				991D0CEE2E6F1F7E0091F234 /* language */,
 				993F8BD12E57624400A0D30A /* CodeQuest */,
 				993F8BE02E57624800A0D30A /* CodeQuestTests */,
 				993F8BEA2E57624800A0D30A /* CodeQuestUITests */,
@@ -127,7 +121,6 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				991D0CEE2E6F1F7E0091F234 /* language */,
 				993F8BD12E57624400A0D30A /* CodeQuest */,
 			);
 			name = CodeQuest;
