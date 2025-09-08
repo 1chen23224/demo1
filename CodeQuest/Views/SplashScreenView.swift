@@ -107,6 +107,9 @@ struct SplashScreenView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle()) // 讓整個 ZStack 區域都可以被點擊
         .onTapGesture {
+            
+            SoundManager.shared.playSound(.proceed)
+
             if !userAcceptedTerms {
                 // 如果還沒同意條款，顯示條款頁面
                 withAnimation {

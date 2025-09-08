@@ -738,7 +738,11 @@ struct MainMenuView: View {
                 .lineLimit(1)
 
             HStack {
-                Button(action: onBack) {
+                Button(action: {
+                    // ✅ 返回音效
+                    SoundManager.shared.playSound(.backButton)
+                    onBack()
+                }) {
                     ZStack {
                         Circle().fill(Color.black.opacity(0.3)).shadow(radius: 5)
                         Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 2).padding(4)
@@ -755,6 +759,7 @@ struct MainMenuView: View {
                     // --- ✨ NEW: 新增畫筆按鈕 (僅限第二章) ---
                     if chapterNumber == 2 {
                         Button(action: {
+                            SoundManager.shared.playSound(.drawingBoardOpen)
                             withAnimation {
                                 showSummary = false
                                 showGuidebook = false
@@ -768,6 +773,7 @@ struct MainMenuView: View {
                     }
                     
                     Button(action: {
+                        SoundManager.shared.playSound(.pageTurn)
                         withAnimation {
                             showGuidebook = false
                             showDrawingBoard = false // 確保關閉畫板
@@ -780,6 +786,7 @@ struct MainMenuView: View {
                     }
                     
                     Button(action: {
+                        SoundManager.shared.playSound(.pageTurn)
                         withAnimation {
                             showSummary = false
                             showDrawingBoard = false // 確保關閉畫板
@@ -1384,7 +1391,18 @@ struct StageIconView: View {
     }
 
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            // 1. 立即播放音效
+            SoundManager.shared.playSound(.stageSelect)
+            
+            // 2. ✅ 手動延遲一個非常短的時間（例如 0.05 秒）再執行畫面切換
+            // 這個時間短到使用者無法察覺，但足以讓音訊系統完成播放指令。
+            // 這確保了聲音絕對會先於畫面變化被聽到。
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                // 在延遲之後，才執行 action() 來顯示 StageDetailView
+                action()
+            }
+        }) {
             VStack(spacing: 8) {
                 ZStack(alignment: .topTrailing) {
                     ZStack {
@@ -1523,7 +1541,11 @@ struct StageDetailView: View {
                             .background(Color.gray.opacity(0.3)).cornerRadius(10)
                     }
 
-                    Button(action: onStart) {
+                    Button(action: {
+                        // ✅ 在執行 onStart 前播放音效
+                        SoundManager.shared.playSound(.challengeStart)
+                        onStart()
+                    }) {
                         Text("game_start".localized())
                             .font(.custom("CEF Fonts CJK Mono", size: 16))
                             .bold().padding().frame(maxWidth: .infinity)

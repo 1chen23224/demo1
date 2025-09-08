@@ -162,7 +162,11 @@ struct LevelView: View {
                         HStack(alignment: .top) {
                             // 左上角
                             HStack(spacing: 16) {
-                                Button(action: { self.isGameActive = false }) {
+                                Button(action: {
+                                    // ✅ 在這裡加入音效
+                                    SoundManager.shared.playSound(.backButton)
+                                    self.isGameActive = false
+                                }) {
                                     Image(systemName: "house.fill")
                                         .font(.title)
                                         .foregroundColor(.white.opacity(0.8))
@@ -257,7 +261,13 @@ struct LevelView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: task)
                 }
             }
-        // ✨ 合併兩個 .onAppear
+        // ✅✅✅ 在這裡加上新的 onChange 修飾符 ✅✅✅
+        .onChange(of: viewModel.isQuizComplete) { isComplete in
+            if isComplete {
+                // 遊戲成功結束，播放勝利音效
+                SoundManager.shared.playSound(.resultsFanfare)
+            }
+        }        // ✨ 合併兩個 .onAppear
         .onAppear {
             handleNewQuestion()
             if GameDataService.shared.highestUnlockedStage == 1 {
@@ -280,6 +290,7 @@ struct LevelView: View {
         
         private func useHint() {
             guard hintState == .available else { return }
+            SoundManager.shared.playSound(.useHint)
             if viewModel.useHint() {
                 withAnimation(.easeInOut(duration: 0.5)) {
                     // ✅ 步驟 3: 套用 langCode
@@ -294,9 +305,11 @@ struct LevelView: View {
             selectedOption = option
             glowingOption = nil
             if option != viewModel.currentQuestion.correctAnswer(for: langCode) {
+                SoundManager.shared.playSound(.answerWrong)
                 wrongAttempts.append(option)
                 triggerFeedback(.red)
             } else {
+                SoundManager.shared.playSound(.answerCorrect)
                 triggerFeedback(.green)
             }
             autoClosePopupTask?.cancel()
@@ -322,6 +335,7 @@ struct LevelView: View {
         
         private func openImageFromIcon() {
             if let _ = viewModel.currentQuestion.imageName {
+                SoundManager.shared.playSound(.imageTap)
                 withAnimation(.spring()) { isImagePopupVisible = true }
             }
         }
@@ -501,6 +515,7 @@ struct ResultView: View {
                         .contentShape(Rectangle())
                         .offset(y: buttonOffsetY)
                         .onTapGesture {
+                            SoundManager.shared.playSound(.resultsConfirm)
                             backToMenuAction()
                         }
                 }
@@ -521,6 +536,9 @@ struct ResultView: View {
                 .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
             }
         }.zIndex(10)
+            .onAppear {
+                MusicPlayer.shared.pauseBGM()
+            }
     }
 
     @ViewBuilder

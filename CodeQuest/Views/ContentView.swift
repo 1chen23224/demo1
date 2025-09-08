@@ -1,5 +1,5 @@
 import SwiftUI
-
+import AVFoundation
 struct ContentView: View {
     @State private var hasFinishedLaunch = false
     @State private var isTransitioning = false
@@ -75,12 +75,16 @@ struct GameNavigationView: View {
     @State private var showPersonalAlert = false
     
     @EnvironmentObject var languageManager: LanguageManager   // 👈 注入語言管理器
-
-    private var shouldLockTabSwipe: Bool {
-        selectedTab == 0 &&
-        selectedChapter != nil &&
-        selectedStage == nil &&
-        customReviewQuestions == nil
+    // ✨ 1. 使用這個新的、更完整的判斷邏輯
+    private var isSwipeDisabled: Bool {
+        // 我們只關心在第一個 Tab 頁面時的鎖定行為
+        guard selectedTab == 0 else { return false }
+        
+        // 只要是進入了任何一個章節 (selectedChapter != nil),
+        // 或者正在進行錯題複習 (customReviewQuestions != nil),
+        // 就應該禁用滑動。
+        // 這個條件同時涵蓋了 MainMenuView 和 LevelView。
+        return selectedChapter != nil || customReviewQuestions != nil
     }
 
     var body: some View {
@@ -145,7 +149,7 @@ struct GameNavigationView: View {
         }
 
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .background(TabSwipeDisabler(isDisabled: shouldLockTabSwipe))
+        .background(TabSwipeDisabler(isDisabled: isSwipeDisabled))
         .ignoresSafeArea()
         .safeAreaInset(edge: .bottom) {
             if selectedStage == nil && customReviewQuestions == nil && !isOverlayActive {
@@ -180,6 +184,32 @@ struct GameNavigationView: View {
         } message: {
             Text("contact_alert_message".localized())
         }
+        .onAppear {
+            // 當 GameNavigationView 第一次出現時，播放大廳音樂
+            // ❗️請確認你的大廳音樂檔名是 "lobby_music.mp3"
+            MusicPlayer.shared.startBackgroundMusic(fileName: "bgm_1.mp3")
+        }
+        .onChange(of: selectedStage) { newStage in
+            if newStage != nil {
+                // 偵測到玩家進入了關卡 (selectedStage 有了值)
+                // 切換到遊戲 BGM
+                MusicPlayer.shared.startBackgroundMusic(fileName: "bgm_2.mp3")
+            } else {
+                // 偵測到玩家退出了關卡 (selectedStage 變回 nil)
+                // 切換回大廳 BGM
+                MusicPlayer.shared.startBackgroundMusic(fileName: "bgm_1.mp3")
+            }
+        }
+        .onChange(of: customReviewQuestions) { newQuestions in
+            // 這個 onChange 處理錯題複習/總複習的情況
+            if newQuestions != nil {
+                // 進入了複習關卡
+                MusicPlayer.shared.startBackgroundMusic(fileName: "bgm_2.mp3")
+            } else {
+                // 退出了複習關卡
+                MusicPlayer.shared.startBackgroundMusic(fileName: "bgm_1.mp3")
+            }
+        }
     }
     
     private func openInstagram(username: String) {
@@ -190,6 +220,7 @@ struct GameNavigationView: View {
             UIApplication.shared.open(webURL, options: [:], completionHandler: nil)
         }
     }
+    
 }
 
 

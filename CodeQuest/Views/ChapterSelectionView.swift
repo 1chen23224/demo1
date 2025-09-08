@@ -110,6 +110,7 @@ struct ChapterMaskView: View {
            let cgImage = uiImage.cgImage {
 
             Button {
+                SoundManager.shared.playSound(.islandSelect)
                 onChapterSelect(chapterNumber)
             } label: {
                 Image("selecting-\(chapterNumber)")
@@ -465,6 +466,8 @@ struct BottomTabButton: View {
                 Text(title) // Text 會自動處理本地化字串
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(isEnabled ? (isSelected ? .yellow : .white) : .gray)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7) // <-- 允許字體最小縮小到原來的 70%
             }
             .padding(.horizontal, 20)
         }

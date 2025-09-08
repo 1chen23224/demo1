@@ -127,6 +127,8 @@ struct WrongQuestionsReviewView: View {
                 Spacer()
                 Text("wrong_review".localized())
                     .font(.custom("CEF Fonts CJK Mono", size: 32)).bold().foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7) // <-- 允許字體最小縮小到原來的 70%
                 Spacer()
                 // 只有當有錯題時才顯示導覽書按鈕
                 if !dataService.wrongQuestionIDs.isEmpty {
@@ -139,11 +141,19 @@ struct WrongQuestionsReviewView: View {
                             .foregroundColor(.red)
                     }.padding(.horizontal, 30)
                     
-                    Button(action: showGuideAction) {
+                    // This is the modified code
+                    Button(action: {
+                        // ✅ Play the page turn sound first
+                        SoundManager.shared.playSound(.pageTurn)
+                        
+                        // Then call the original action
+                        showGuideAction()
+                    }) {
                         Image(systemName: "book.closed.fill")
                             .font(.title2)
                             .foregroundColor(.white)
                     }
+                    
                 }
             }
             
@@ -162,7 +172,10 @@ struct WrongQuestionsReviewView: View {
                 }
             }
             Spacer()
-            Button("wrong_play".localized()) {
+            Button {
+                // --- 這裡的按鈕動作程式碼完全不變 ---
+                SoundManager.shared.playSound(.createLevel)
+
                 var reviewQuestions: [QuizQuestion] = []
                 for (chapter, percentage) in chapterPercentages {
                     let wrongQuestions = getWrongQuestions(for: chapter)
@@ -171,11 +184,17 @@ struct WrongQuestionsReviewView: View {
                 }
                 
                 if !reviewQuestions.isEmpty { onStartReview(reviewQuestions.shuffled()) }
+                
+            } label: {
+                // --- 我們在這裡明確建立 Text ---
+                Text("wrong_play".localized())
+                    .lineLimit(1)            // <--- 加上這一行
+                    .minimumScaleFactor(0.7) // <--- 加上這一行
             }
             .buttonStyle(.borderedProminent)
-            .font(.custom("CEF Fonts CJK Mono", size: 20))
+            .font(.custom("CEF Fonts CJK Mono", size: 20)) // 字體可以繼續留在这里
             .padding(.bottom, 33)
-            .disabled(totalQuestionsToReview == 0) // 如果總數為 0，禁用按鈕
+            .disabled(totalQuestionsToReview == 0)
         }
         .padding()
         // ✨ NEW: 將 .alert 彈窗修飾符加到這裡
@@ -247,7 +266,10 @@ struct AllQuestionsReviewView: View {
                 .tint(.yellow)
             }
             
-            Button("review_play".localized()) {
+            Button {
+                // --- 你的按鈕動作程式碼，完全照搬過來 ---
+                SoundManager.shared.playSound(.createLevel)
+
                 var reviewQuestions: [QuizQuestion] = []
                 for (chapter, percentage) in chapterPercentages {
                     if dataService.isChapterUnlocked(chapter) {
@@ -257,6 +279,12 @@ struct AllQuestionsReviewView: View {
                     }
                 }
                 if !reviewQuestions.isEmpty { onStartReview(reviewQuestions.shuffled()) }
+
+            } label: {
+                // --- 在這裡定義文字和它的樣式 ---
+                Text("review_play".localized())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7) // 或是你需要的任何比例
             }
             .buttonStyle(.borderedProminent)
             .font(.custom("CEF Fonts CJK Mono", size: 20))
@@ -394,9 +422,13 @@ struct ReviewChapterRow: View {
             HStack {
                 Text(String(format: "chapter_total".localized(), title, totalCount))
                     .padding(.horizontal,10)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6) // 或是你需要的任何比例
                 Spacer()
                 Text(String(format: "question_percentage".localized(), Int(percentage * 100)))
                 .padding(.horizontal,10)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6) // 或是你需要的任何比例
             }
             .font(.custom("CEF Fonts CJK Mono", size: 14)) // 縮小一點
             
