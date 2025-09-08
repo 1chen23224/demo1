@@ -102,6 +102,8 @@ struct SplashScreenView: View {
                 withAnimation(.easeInOut(duration: 1.0).repeatForever()) {
                     isPulsing.toggle()
                 }
+                // ✅ 在這裡新增一行，開始播放 bgm_3
+                MusicPlayer.shared.startBackgroundMusic(fileName: "bgm_3.mp3")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -116,7 +118,8 @@ struct SplashScreenView: View {
                     showTermsOfService = true
                 }
             } else {
-                // 如果已同意，直接結束
+                MusicPlayer.shared.stopBackgroundMusic()
+                
                 onFinished()
             }
         }
