@@ -70,6 +70,7 @@ struct LevelView: View {
         }
     }
     var body: some View {
+        let isGameFinished = viewModel.isQuizComplete || viewModel.isGameOver
         // ⭐️ 將 GeometryReader 作為最外層的視圖，獲取整個螢幕的真實尺寸
         GeometryReader { geometry in
             ZStack {
@@ -140,13 +141,11 @@ struct LevelView: View {
                     Color.clear // 透明背景，僅用於附加 .safeAreaInset
                     .safeAreaInset(edge: .top) {
                         QuestionBar(
-                            // ✅ 在這裡加入判斷
-                            // 如果 viewModel 說 quiz 已經完成，就直接顯示 "all_complete"
-                            // 否則，才去向 viewModel 拿取當前的問題文字
-                            text: viewModel.isQuizComplete ? "all_complete".localized() : viewModel.currentQuestion.questionText(for: langCode),
+                            // ✨ MODIFIED: 使用 isGameFinished 來判斷
+                            text: isGameFinished ? "all_complete".localized() : viewModel.currentQuestion.questionText(for: langCode),
                             
-                            // ✅ 同樣地，如果 quiz 完成了，就不應該再顯示任何圖片
-                            imageName: viewModel.isQuizComplete ? nil : viewModel.currentQuestion.imageName,
+                            // ✨ MODIFIED: 同樣地，用 isGameFinished 來決定是否顯示圖片
+                            imageName: isGameFinished ? nil : viewModel.currentQuestion.imageName,
                             
                             shouldAnimateIcon: false,
                             showHandHint: false,
@@ -211,21 +210,23 @@ struct LevelView: View {
                     }
                     
                     // --- 結算畫面 ---
-                    if viewModel.isQuizComplete || viewModel.isGameOver {
-                        ResultView(
-                            stageNumber: viewModel.currentStage,
-                            evaluation: viewModel.finalEvaluation,
-                            maxCombo: viewModel.maxComboAchieved,
-                            correctlyAnswered: viewModel.correctlyAnsweredCount,
-                            totalQuestions: viewModel.totalQuestions,
-                            backToMenuAction: {
-                                viewModel.resetFlagsForNewGame() // ✨ 在返回主選單前重置
-                                self.isGameActive = false
-                            }
+                if isGameFinished { // ✨ 也建議使用 isGameFinished 來保持一致
+                    ResultView(
+                        stageNumber: viewModel.currentStage,
+                        evaluation: viewModel.finalEvaluation,
+                        maxCombo: viewModel.maxComboAchieved,
+                        correctlyAnswered: viewModel.correctlyAnsweredCount,
+                        totalQuestions: viewModel.totalQuestions,
+                        backToMenuAction: {
+                            // ✨ REMOVED: 刪除這一行！這是導致離開時閃爍的元兇
+                            // viewModel.resetFlagsForNewGame()
                             
-                        )
-                        .transition(.opacity.animation(.easeIn(duration: 0.5)))
-                    }
+                            // 只需改變 isGameActive 的狀態，讓畫面自然地過渡回去
+                            self.isGameActive = false
+                        }
+                    )
+                    .transition(.opacity.animation(.easeIn(duration: 0.5)))
+                }
                     
                     // --- 答對/答錯色調 Overlay ---
                     if showFeedbackOverlay, let color = feedbackColor {

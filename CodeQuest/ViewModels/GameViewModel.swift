@@ -142,6 +142,7 @@ class GameViewModel: ObservableObject {
     convenience init() { self.init(stage: 0) }
     
     func startGame(stage: Int) {
+        resetFlagsForNewGame()
         self.currentStage = stage
         let (chapterNumber, stageInChapter) = dataService.chapterAndStageInChapter(for: stage)
         
