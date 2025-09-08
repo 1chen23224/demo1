@@ -72,6 +72,7 @@ class LanguageManager: ObservableObject {
     func changeLanguage(to languageCode: String) {
         if availableLanguages.contains(where: { $0.code == languageCode }) {
             currentLanguage = languageCode
+            MusicPlayer.shared.stopBackgroundMusic()
             restartApp()
         }
     }
