@@ -22,7 +22,7 @@ struct QuizQuestion: Identifiable, Codable, Hashable {
     // ✅ ADD these helper functions to easily get the text for the current language
     // This makes using it in the UI much cleaner.
     func questionText(for langCode: String) -> String {
-        return questionText[langCode] ?? questionText["zh-Hant"] ?? "Question text not found"
+        return questionText[langCode] ?? questionText["zh-Hant"] ?? ""
     }
 
     func options(for langCode: String) -> [String] {

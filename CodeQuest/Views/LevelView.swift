@@ -72,7 +72,6 @@ struct LevelView: View {
     var body: some View {
         // ✨ MODIFIED: 建立兩個條件判斷，讓邏輯更清晰
         let isGameFinished = viewModel.isQuizComplete || viewModel.isGameOver
-        let shouldShowQuestion = !isGameFinished && viewModel.isQuestionAvailable
         // ⭐️ 將 GeometryReader 作為最外層的視圖，獲取整個螢幕的真實尺寸
         GeometryReader { geometry in
             ZStack {
@@ -142,17 +141,21 @@ struct LevelView: View {
                     // --- 題目列（最上層 UI） ---
                     Color.clear // 透明背景，僅用於附加 .safeAreaInset
                     .safeAreaInset(edge: .top) {
+
                         QuestionBar(
-                            // ✨ MODIFIED: 使用新的 shouldShowQuestion 條件
-                            text: shouldShowQuestion ? viewModel.currentQuestion.questionText(for: langCode) : "all_complete".localized(),
-                            
-                            imageName: shouldShowQuestion ? viewModel.currentQuestion.imageName : nil,
-                            
+                            text: isGameFinished
+                                ? "all_complete".localized()
+                                : viewModel.currentQuestion.questionText(for: langCode),
+                            imageName: isGameFinished
+                                ? nil
+                                : viewModel.currentQuestion.imageName,
                             shouldAnimateIcon: false,
                             showHandHint: false,
                             onImageTap: { openImageFromIcon() }
-                        )                            .padding(.horizontal)
+                        )
+                        .padding(.horizontal)
                         .padding(.vertical, 60)
+
                     }
                     // --- 自動圖片彈窗 ---
                     if isImagePopupVisible, let imageName = viewModel.currentQuestion.imageName {
