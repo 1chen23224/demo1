@@ -70,7 +70,9 @@ struct LevelView: View {
         }
     }
     var body: some View {
+        // ✨ MODIFIED: 建立兩個條件判斷，讓邏輯更清晰
         let isGameFinished = viewModel.isQuizComplete || viewModel.isGameOver
+        let shouldShowQuestion = !isGameFinished && viewModel.isQuestionAvailable
         // ⭐️ 將 GeometryReader 作為最外層的視圖，獲取整個螢幕的真實尺寸
         GeometryReader { geometry in
             ZStack {
@@ -141,11 +143,10 @@ struct LevelView: View {
                     Color.clear // 透明背景，僅用於附加 .safeAreaInset
                     .safeAreaInset(edge: .top) {
                         QuestionBar(
-                            // ✨ MODIFIED: 使用 isGameFinished 來判斷
-                            text: isGameFinished ? "all_complete".localized() : viewModel.currentQuestion.questionText(for: langCode),
+                            // ✨ MODIFIED: 使用新的 shouldShowQuestion 條件
+                            text: shouldShowQuestion ? viewModel.currentQuestion.questionText(for: langCode) : "all_complete".localized(),
                             
-                            // ✨ MODIFIED: 同樣地，用 isGameFinished 來決定是否顯示圖片
-                            imageName: isGameFinished ? nil : viewModel.currentQuestion.imageName,
+                            imageName: shouldShowQuestion ? viewModel.currentQuestion.imageName : nil,
                             
                             shouldAnimateIcon: false,
                             showHandHint: false,
@@ -218,11 +219,10 @@ struct LevelView: View {
                         correctlyAnswered: viewModel.correctlyAnsweredCount,
                         totalQuestions: viewModel.totalQuestions,
                         backToMenuAction: {
-                            // ✨ REMOVED: 刪除這一行！這是導致離開時閃爍的元兇
-                            // viewModel.resetFlagsForNewGame()
-                            
-                            // 只需改變 isGameActive 的狀態，讓畫面自然地過渡回去
                             self.isGameActive = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                viewModel.resetFlagsForNewGame()
+                            }
                         }
                     )
                     .transition(.opacity.animation(.easeIn(duration: 0.5)))

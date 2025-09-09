@@ -63,7 +63,10 @@ class GameViewModel: ObservableObject {
     @Published var correctlyAnsweredCount: Int = 0
     @Published var comboCount: Int = 0
     @Published var maxComboAchieved: Int = 0
-
+    // ✨ NEW: 新增這個計算屬性
+    var isQuestionAvailable: Bool {
+        return currentQuestionIndex < quizQuestions.count
+    }
     var totalQuestions: Int { quizQuestions.count }
     
     var finalEvaluation: String {
@@ -177,8 +180,14 @@ class GameViewModel: ObservableObject {
     }
     func resetFlagsForNewGame() {
         print("🧹 GameViewModel: Resetting flags for new game.")
-        isGameOver = false
-        isQuizComplete = false
+        // ✨ MINIMAL CHANGE IS HERE ✨
+        // 將狀態重置的操作放到主線程的下一個循環中執行
+        // 這給了 UI 足夠的時間來啟動關閉畫面的轉換動畫
+        // 從而避免了在動畫過程中因狀態不一致而導致的畫面閃爍
+        DispatchQueue.main.async {
+            self.isGameOver = false
+            self.isQuizComplete = false
+        }
     }
     func restartGame() {
         if currentStage == -1 { resetGameStates() }
