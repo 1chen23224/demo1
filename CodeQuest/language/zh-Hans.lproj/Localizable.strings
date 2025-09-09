@@ -20,7 +20,7 @@
 "secret_alert_button_confirm" = "好Q";
 "secret_alert_message" = "连续点击标题5次可呼唤可可。";
 "select_language_title" = "请选择你的语言";
-
+"fast_start" = "速刷";
 // MARK: - SplashScreen
 "click2start" = "点击任意位置继续";
 "acceptnagree" = "我已阅读并同意";

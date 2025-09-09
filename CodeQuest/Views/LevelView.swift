@@ -513,7 +513,7 @@ struct ResultView: View {
                     Text("\(correctlyAnswered) / \(totalQuestions)")
                         .font(.system(size: scoreFontSize, weight: .heavy, design: .rounded))
                         .foregroundColor(textColor)
-                        .font(.custom("CEF Fonts CJK Mono", size: scoreFontSize))
+                        .font(.custom("Yuanti TC-Bold", size: scoreFontSize))
                         .offset(x: 3, y: sizeClass == .regular ? 70 : 40)
                     
                     // 返回按鈕的點擊區域
@@ -554,13 +554,13 @@ struct ResultView: View {
         switch evaluation {
         case "S":
             text.foregroundColor(.yellow)
-                .font(.custom("CEF Fonts CJK Mono", size: evaluationTextFontSize))
+                .font(.custom("Yuanti TC-Bold", size: evaluationTextFontSize))
         case "A":
             text.foregroundColor(.red)
-                .font(.custom("CEF Fonts CJK Mono", size: evaluationTextFontSize))
+                .font(.custom("Yuanti TC-Bold", size: evaluationTextFontSize))
         default:
             text.foregroundColor(textColor)
-                .font(.custom("CEF Fonts CJK Mono", size: evaluationTextFontSize))
+                .font(.custom("Yuanti TC-Bold", size: evaluationTextFontSize))
         }
     }
 }
@@ -814,7 +814,7 @@ struct QuestionBar: View {
                 // 題目文字 (自動換行 + 捲動) - 這部分不變
                 ScrollView(.vertical, showsIndicators: false) {
                     Text(text)
-                        .font(.custom("CEF Fonts CJK Mono", size: questionFontSize))
+                        .font(.custom("Yuanti TC-Bold", size: questionFontSize))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.leading)
                         .lineLimit(nil)
@@ -951,7 +951,7 @@ struct OptionButton: View {
 
     // ✨ NEW: iPad 上的字體也稍微調整以適應新的按鈕高度
     private var fontSize: CGFloat {
-        return sizeClass == .regular ? 42 : 33
+        return sizeClass == .regular ? 38 : 27
     }
     
     var body: some View {
@@ -967,7 +967,7 @@ struct OptionButton: View {
             .clipped()
             .overlay(
                 Text(optionText)
-                    .font(.custom("CEF Fonts CJK Mono", size: fontSize))
+                    .font(.custom("Yuanti TC-Bold", size: fontSize))
                     .fontWeight(.heavy)
                     .foregroundColor(Color(red: 60/255, green: 40/255, blue: 40/255))
                     .multilineTextAlignment(.center)

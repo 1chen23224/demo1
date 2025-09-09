@@ -126,7 +126,7 @@ struct WrongQuestionsReviewView: View {
             HStack {
                 Spacer()
                 Text("wrong_review".localized())
-                    .font(.custom("CEF Fonts CJK Mono", size: 32)).bold().foregroundColor(.white)
+                    .font(.custom("Yuanti TC-Bold", size: 32)).bold().foregroundColor(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7) // <-- 允許字體最小縮小到原來的 70%
                 Spacer()
@@ -160,7 +160,7 @@ struct WrongQuestionsReviewView: View {
             ForEach(1...5, id: \.self) { chapter in
                 let wrongQuestionsInChapter = getWrongQuestions(for: chapter)
                 // ✨ [修正] 現在 isChapterUnlocked 應該由 dataService 判斷
-                if dataService.isChapterUnlocked(chapter) && !wrongQuestionsInChapter.isEmpty {
+                if !wrongQuestionsInChapter.isEmpty {
                     ReviewChapterRow(
                         title: String(format: "chapter_title".localized(), chapter),
                         totalCount: wrongQuestionsInChapter.count,
@@ -192,7 +192,7 @@ struct WrongQuestionsReviewView: View {
                     .minimumScaleFactor(0.7) // <--- 加上這一行
             }
             .buttonStyle(.borderedProminent)
-            .font(.custom("CEF Fonts CJK Mono", size: 20)) // 字體可以繼續留在这里
+            .font(.custom("Yuanti TC-Bold", size: 20)) // 字體可以繼續留在这里
             .padding(.bottom, 33)
             .disabled(totalQuestionsToReview == 0)
         }
@@ -239,11 +239,11 @@ struct AllQuestionsReviewView: View {
 
     var body: some View {
         VStack(spacing: 15) {
-            Text("review".localized()).font(.custom("CEF Fonts CJK Mono", size: 32)).bold().foregroundColor(.white)
+            Text("review".localized()).font(.custom("Yuanti TC-Bold", size: 32)).bold().foregroundColor(.white)
             
             ForEach(1...5, id: \.self) { chapter in
                 let questionsInChapter = getQuestions(for: chapter)
-                if dataService.isChapterUnlocked(chapter) && !questionsInChapter.isEmpty {
+                if !questionsInChapter.isEmpty {
                     ReviewChapterRow(
                         title: String(format: "chapter_title".localized(), chapter),
                         totalCount: questionsInChapter.count,
@@ -258,13 +258,13 @@ struct AllQuestionsReviewView: View {
             
             // ✨ NEW: 模擬考比例按鈕
             // 條件：必須已解鎖第五章
-            if dataService.isChapterUnlocked(5) {
+            
                 Button(action: setMockExamRatio) {
                     Label("review_mock".localized(), systemImage: "graduationcap.fill")
                 }
                 .buttonStyle(.bordered) // 使用不同樣式以區分
                 .tint(.yellow)
-            }
+            
             
             Button {
                 // --- 你的按鈕動作程式碼，完全照搬過來 ---
@@ -287,7 +287,7 @@ struct AllQuestionsReviewView: View {
                     .minimumScaleFactor(0.7) // 或是你需要的任何比例
             }
             .buttonStyle(.borderedProminent)
-            .font(.custom("CEF Fonts CJK Mono", size: 20))
+            .font(.custom("Yuanti TC-Bold", size: 20))
             .padding(.bottom, 33)
             .disabled(totalQuestionsToReview == 0) // 如果總數為 0，禁用按鈕
         }
@@ -430,7 +430,7 @@ struct ReviewChapterRow: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6) // 或是你需要的任何比例
             }
-            .font(.custom("CEF Fonts CJK Mono", size: 14)) // 縮小一點
+            .font(.custom("Yuanti TC-Bold", size: 14)) // 縮小一點
             
             Slider(value: $percentage, in: 0...1, step: 0.01)
 

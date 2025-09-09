@@ -139,7 +139,7 @@ struct DrawingBoardView: View {
         // ... (這部分程式碼與之前相同，無需修改)
         HStack {
             Text(String(format: "chapter_board".localized(), chapterNumber))
-                .font(.custom("CEF Fonts CJK Mono", size: sizeClass == .regular ? 22 : 18))
+                .font(.custom("Yuanti TC-Bold", size: sizeClass == .regular ? 22 : 18))
                 .bold()
             Spacer()
             Button(action: onClose) {
@@ -192,7 +192,7 @@ struct DrawingBoardView: View {
                     Image(systemName: "photo.on.rectangle.angled")
                         .font(.largeTitle)
                     Text("select_an_img".localized())
-                        .font(.custom("CEF Fonts CJK Mono", size: 16))
+                        .font(.custom("Yuanti TC-Bold", size: 16))
                         .padding(.top, 8)
                 }
                 .foregroundColor(.gray)
@@ -281,7 +281,7 @@ struct QuestionDetailRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(question.questionText(for: langCode))
-                .font(.custom("CEF Fonts CJK Mono", size: 16))
+                .font(.custom("Yuanti TC-Bold", size: 16))
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
                 .lineLimit(2)
@@ -292,7 +292,7 @@ struct QuestionDetailRowView: View {
                         Image(systemName: option == question.correctAnswer(for: langCode) ? "checkmark.circle.fill" : "circle")
                             .foregroundColor(option == question.correctAnswer(for: langCode) ? .green : .secondary)
                         Text(option)
-                            .font(.custom("CEF Fonts CJK Mono", size: 15))
+                            .font(.custom("Yuanti TC-Bold", size: 15))
                             .foregroundColor(option == question.correctAnswer(for: langCode) ? .primary : .secondary)
                     }
                 }
@@ -318,7 +318,7 @@ struct QuestionDisplayView: View {
                     Text(String(format: "related_question_progress".localized(),
                                 questionIndex + 1,
                                 questions.count))
-                        .font(.custom("CEF Fonts CJK Mono", size: 14))
+                        .font(.custom("Yuanti TC-Bold", size: 14))
                         .fontWeight(.semibold)
                     
                     Spacer()
@@ -402,7 +402,7 @@ struct TutorialOverlayView: View {
             // LAYER 2: The interactive text box.
             VStack(spacing: 20) {
                 Text(tutorialText)
-                    .font(.custom("CEF Fonts CJK Mono", size: 20))
+                    .font(.custom("Yuanti TC-Bold", size: 20))
                     .bold()
                     .multilineTextAlignment(.center)
                     .foregroundColor(.white)
@@ -414,7 +414,7 @@ struct TutorialOverlayView: View {
                 if showNextButton {
                     Button(action: advanceStep) {
                         Text("next".localized())
-                            .font(.custom("CEF Fonts CJK Mono", size: 18))
+                            .font(.custom("Yuanti TC-Bold", size: 18))
                             .bold()
                             .foregroundColor(.blue)
                             .padding(.horizontal, 30)
@@ -688,7 +688,7 @@ struct MainMenuView: View {
                                  stageInChapter)
                     )
                     
-                    .font(.custom("CEF Fonts CJK Mono", size: 30))
+                    .font(.custom("Yuanti TC-Bold", size: 30))
                     .fontWeight(.bold)
                     .foregroundColor(.white)
                     .opacity(textOpacity)
@@ -732,7 +732,7 @@ struct MainMenuView: View {
     private var topBar: some View {
         ZStack {
             Text(String(format: "chapter_title".localized(), chapterNumber))
-                .font(.custom("CEF Fonts CJK Mono", size: chapterTitleFontSize))
+                .font(.custom("Yuanti TC-Bold", size: chapterTitleFontSize))
                 .foregroundColor(.white)
                 .shadow(color: .black.opacity(0.3), radius: 5, y: 5)
                 .lineLimit(1)
@@ -944,7 +944,7 @@ struct SummaryView: View {
                     // 標題列
                     HStack {
                         Text(summary?.title ?? "summary".localized())
-                            .font(.custom("CEF Fonts CJK Mono", size: 22))
+                            .font(.custom("Yuanti TC-Bold", size: 22))
                             .bold()
                         Spacer()
                         Button(action: onClose) {
@@ -971,7 +971,7 @@ struct SummaryView: View {
                     } else {
                         Spacer()
                         Text("no_summary".localized())
-                            .font(.custom("CEF Fonts CJK Mono", size: 18))
+                            .font(.custom("Yuanti TC-Bold", size: 18))
                             .foregroundColor(.gray)
                         Spacer()
                     }
@@ -999,7 +999,7 @@ struct SummarySectionView: View {
         VStack(alignment: .leading, spacing: 12) {
             // 區塊標題
             Label(section.heading, systemImage: section.icon)
-                .font(.custom("CEF Fonts CJK Mono", size: 20))
+                .font(.custom("Yuanti TC-Bold", size: 20))
                 .fontWeight(.bold)
                 .foregroundColor(.blue)
             
@@ -1013,7 +1013,7 @@ struct SummarySectionView: View {
                         Image(systemName: "checkmark.circle")
                             .foregroundColor(.green)
                     }
-                    .font(.custom("CEF Fonts CJK Mono", size: 17))
+                    .font(.custom("Yuanti TC-Bold", size: 17))
                 }
             }
             .padding(.leading, 10) // 列表內容縮排
@@ -1171,12 +1171,12 @@ struct GuidebookRowView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     // 🔧 更改：使用多語言函式
                     Text(question.questionText(for: langCode))
-                        .font(.custom("CEF Fonts CJK Mono", size: 15))
+                        .font(.custom("Yuanti TC-Bold", size: 15))
                         .foregroundColor(.secondary)
                 
                     // 🔧 更改：使用多語言函式
                     Text(question.correctAnswer(for: langCode))
-                        .font(.custom("CEF Fonts CJK Mono", size: 17))
+                        .font(.custom("Yuanti TC-Bold", size: 17))
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
                 }
@@ -1222,12 +1222,12 @@ struct GuidebookRowView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     // 🔧 更改：使用多語言函式
                     Text(question.questionText(for: langCode))
-                        .font(.custom("CEF Fonts CJK Mono", size: 15))
+                        .font(.custom("Yuanti TC-Bold", size: 15))
                         .foregroundColor(.secondary)
                 
                     // 🔧 更改：使用多語言函式
                     Text(question.correctAnswer(for: langCode))
-                        .font(.custom("CEF Fonts CJK Mono", size: 18))
+                        .font(.custom("Yuanti TC-Bold", size: 18))
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
                 }
@@ -1271,7 +1271,7 @@ struct GuidebookRowView: View {
                     }
                     
                     Text(option)
-                        .font(.custom("CEF Fonts CJK Mono", size: 16))
+                        .font(.custom("Yuanti TC-Bold", size: 16))
                         .fontWeight(option == question.correctAnswer(for: langCode) ? .bold : .regular)
                 }
             }
@@ -1456,7 +1456,7 @@ struct StageIconView: View {
                      : String(format: "stage_with_number".localized(), relativeStage)
                 )
                 
-                    .font(.custom("CEF Fonts CJK Mono", size: 16))
+                    .font(.custom("Yuanti TC-Bold", size: 16))
                     .fontWeight(.bold)
                     .foregroundColor(.white)
             }
@@ -1507,7 +1507,7 @@ struct StageDetailView: View {
                      ? "stage_final".localized()
                      : String(format: "stage_with_number".localized(), relativeStage)
                 )
-                    .font(.custom("CEF Fonts CJK Mono", size: 30))
+                    .font(.custom("Yuanti TC-Bold", size: 30))
                     .bold()
                     .foregroundColor(textColor)
 
@@ -1516,17 +1516,17 @@ struct StageDetailView: View {
                 if let res = result {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("record_title".localized())
-                            .font(.custom("CEF Fonts CJK Mono", size: 20))
+                            .font(.custom("Yuanti TC-Bold", size: 20))
                             .bold()
                         Text(String(format: "record_evaluation".localized(), res.evaluation))
                         Text(String(format: "record_max_combo".localized(), res.maxCombo))
                         Text(String(format: "record_correct_questions".localized(), res.correctlyAnswered, res.totalQuestions))
                     }
-                    .font(.custom("CEF Fonts CJK Mono", size: 18))
+                    .font(.custom("Yuanti TC-Bold", size: 18))
                     .foregroundColor(textColor)
                 } else {
                     Text("no_record".localized())
-                        .font(.custom("CEF Fonts CJK Mono", size: 22))
+                        .font(.custom("Yuanti TC-Bold", size: 22))
                         .foregroundColor(.gray)
                         .padding(.vertical, 30)
                 }
@@ -1536,7 +1536,7 @@ struct StageDetailView: View {
                 HStack(spacing: 15) {
                     Button(action: onCancel) {
                         Text("cancel".localized())
-                            .font(.custom("CEF Fonts CJK Mono", size: 16))
+                            .font(.custom("Yuanti TC-Bold", size: 16))
                             .bold().padding().frame(maxWidth: .infinity)
                             .background(Color.gray.opacity(0.3)).cornerRadius(10)
                     }
@@ -1547,7 +1547,7 @@ struct StageDetailView: View {
                         onStart()
                     }) {
                         Text("game_start".localized())
-                            .font(.custom("CEF Fonts CJK Mono", size: 16))
+                            .font(.custom("Yuanti TC-Bold", size: 16))
                             .bold().padding().frame(maxWidth: .infinity)
                             .background(Color.blue).cornerRadius(10)
                     }

@@ -311,9 +311,10 @@ struct ChapterSelectionView: View {
             VStack {
                 // ✅ Base layer: An HStack that spans the full width to center the title
                 HStack {
+                    // 基礎佈局：用兩個 Spacer 讓標題永遠置中
                     Spacer()
                     Text("𝑴 𝑨 𝑷")
-                        .font(.custom("CEF Fonts CJK Mono", size: 50))
+                        .font(.custom("Yuanti TC-Bold", size: 50))
                         .foregroundColor(.black)
                         .onTapGesture {
                             mapTapCount += 1
@@ -324,13 +325,12 @@ struct ChapterSelectionView: View {
                         }
                     Spacer()
                 }
-                
-                // ✅ Overlay layer: Place the button on top, aligned to the right
+                // ✅ 修改點 1：這是原本就有的，負責放置右邊的「語言按鈕」
                 .overlay(alignment: .trailing) {
                     Button(action: {
                         showLanguageSelector = true
                     }) {
-                        Image(systemName: "globe.americas.fill") // A more detailed globe
+                        Image(systemName: "globe.americas.fill")
                             .font(.system(size: 24, weight: .regular))
                             .foregroundColor(.blue.opacity(0.8))
                             .frame(width: 40, height: 40)
@@ -343,9 +343,45 @@ struct ChapterSelectionView: View {
                                 Circle()
                                     .stroke(Color.black.opacity(0.5), lineWidth: 0.7)
                             )
-                        
                     }
-                    .padding(.trailing, 15) // Give the button some space from the edge
+                    .padding(.trailing, 15) // 給按鈕一點螢幕邊距
+                }
+                // ✅ 修改點 2：我們新增這個 overlay，負責放置左邊的「快速開始按鈕」
+                .overlay(alignment: .leading) {
+                    // 直接使用我們之前設計好的按鈕
+                    Button(action: {
+                        onSelectReviewTab()
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "hare.fill")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white.opacity(0.9))
+                            
+                            Text("fast_start".localized())
+                                .font(.system(size: 14, weight: .semibold, design: .serif))
+                                .foregroundColor(.white.opacity(0.95))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [Color.blue.opacity(0.9), Color.purple.opacity(0.8)]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 2)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.white.opacity(0.4), lineWidth: 1.5)
+                        )
+                    }
+                    .padding(.leading, 10)
+
+                
                 }
                 .padding(.top, (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.windows.first?.safeAreaInsets.top ?? 0)
                 
@@ -437,6 +473,7 @@ struct ChapterSelectionView: View {
             Text("secret_alert_message".localized())
         }
         .navigationBarHidden(true)
+        
     }
     
     private func dismissGuideIfNeeded() {

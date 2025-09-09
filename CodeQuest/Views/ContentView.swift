@@ -86,7 +86,7 @@ struct GameNavigationView: View {
         // 這個條件同時涵蓋了 MainMenuView 和 LevelView。
         return selectedChapter != nil || customReviewQuestions != nil
     }
-
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             // 學習
@@ -99,7 +99,7 @@ struct GameNavigationView: View {
                         )
                     )
                     .environmentObject(GameViewModel(customQuestions: questions))
-
+                    
                 } else if let stage = selectedStage {
                     LevelView(
                         isGameActive: Binding(
@@ -108,7 +108,7 @@ struct GameNavigationView: View {
                         )
                     )
                     .environmentObject(GameViewModel(stage: stage))
-
+                    
                 } else if let chapter = selectedChapter {
                     MainMenuView(
                         chapterNumber: chapter,
@@ -119,12 +119,31 @@ struct GameNavigationView: View {
                 } else {
                     ChapterSelectionView(
                         onChapterSelect: { chapterNumber in self.selectedChapter = chapterNumber },
-                        onSelectReviewTab: { selectedTab = 1 }
+                        onSelectReviewTab: {
+                            SoundManager.shared.playSound(.createLevel)
+                            let allQuestions = GameDataService.shared.allQuestions
+                            var reviewQuestions: [QuizQuestion] = []
+
+                            // 🔥 模擬考題數比例
+                            let mockExamCounts: [Int: Int] = [1: 12, 2: 8, 3: 10, 4: 10, 5: 10]
+
+                            for chapter in 1...5 {
+                                let chapterQuestions = allQuestions.filter { $0.level == chapter }
+                                let targetCount = min(mockExamCounts[chapter, default: 0], chapterQuestions.count)
+                                let selected = Array(chapterQuestions.shuffled().prefix(targetCount))
+                                reviewQuestions.append(contentsOf: selected)
+                            }
+
+                            // 呼叫 startReview
+                            startReview(reviewQuestions.shuffled())
+                        }
                     )
+
                 }
+                
             }
             .tag(0)
-
+            
             // 錯題複習
             StudyView(
                 initialTab: 0, // 👉 預設錯題複習
@@ -135,7 +154,7 @@ struct GameNavigationView: View {
                 onBack: { selectedTab = 0 }
             )
             .tag(1)
-
+            
             // 總複習
             StudyView(
                 initialTab: 1, // 👉 預設總複習
@@ -147,7 +166,7 @@ struct GameNavigationView: View {
             )
             .tag(2)
         }
-
+        
         .tabViewStyle(.page(indexDisplayMode: .never))
         .background(TabSwipeDisabler(isDisabled: isSwipeDisabled))
         .ignoresSafeArea()
@@ -175,7 +194,7 @@ struct GameNavigationView: View {
                 .offset(y: 25)
             }
         }
-
+        
         .alert("contact_alert_title".localized(), isPresented: $showPersonalAlert) {
             Button("contact_alert_button_ig".localized()) {
                 openInstagram(username: "full_score_top")
@@ -220,11 +239,14 @@ struct GameNavigationView: View {
             UIApplication.shared.open(webURL, options: [:], completionHandler: nil)
         }
     }
-    
+    private func startReview(_ questions: [QuizQuestion]) {
+        self.customReviewQuestions = questions
+        self.selectedTab = 0
+    }
 }
 
 
 #Preview {
     ContentView()
-        .environmentObject(LanguageManager.shared) // Add this line
+        .environmentObject(LanguageManager.shared)
 }

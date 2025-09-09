@@ -12,7 +12,7 @@
 "contact_alert_message" = "Nosso Instagram: @full_score_top";
 "contact_alert_button_ig" = "Abrir IG";
 "contact_alert_button_cancel" = "Cancelar";
-
+"fast_start" = "Pura";
 // MARK: - Secret Key Alert
 "secret_alert_title" = "Abre-te Sésamo!!";
 "secret_alert_placeholder" = "Digite o código secreto...";

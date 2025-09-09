@@ -92,7 +92,7 @@ struct SplashScreenView: View {
                 Spacer()
                 Text("click2start".localized())
                     // 使用動態計算的字體和間距
-                    .font(.custom("CEF Fonts CJK Mono", size: continueTextFontSize))
+                    .font(.custom("Yuanti TC-Bold", size: continueTextFontSize))
                     .foregroundColor(.white)
                     .shadow(radius: 5)
                     .opacity(isPulsing ? 1.0 : 0.6)

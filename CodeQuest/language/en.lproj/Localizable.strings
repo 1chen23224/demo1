@@ -20,6 +20,7 @@
 "secret_alert_button_confirm" = "Confirm";
 "secret_alert_message" = "Tap the title 5 times to summon coco.";
 "select_language_title" = "Select your language";
+"fast_start" = "Pure";
 //splashscreen
 "click2start" = "Touch start";
 "acceptnagree" = "I have read and agreed";
